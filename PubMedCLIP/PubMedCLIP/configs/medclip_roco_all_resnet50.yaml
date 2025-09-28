@@ -7,9 +7,9 @@ INPUT_SIZE: (250, 250)
 DATASET:
   DATASET: 'ROCO'
   DATA_TYPE: 'jpg'
-  TRAIN_JSON: "./data/train_dataset.json"
-  VALID_JSON: "./data/validation_dataset.json"
-  DATA_DIR: './data'
+  TRAIN_JSON: "/data/elo/data/roco-dataset/data/train_dataset.json"
+  VALID_JSON: "/data/elo/data/roco-dataset/data/validation_dataset.json"
+  DATA_DIR: '/data/elo/data/roco-dataset/data'
 
 LOSS:
   LOSS_TYPE: 'CrossEntropy'

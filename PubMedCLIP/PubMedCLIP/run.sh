@@ -1,9 +1,9 @@
 #!/bin/bash
 
-TRAINPATH=/path/to/ROCO/train
-VALPATH=/path/to/ROCO/validation
-TESTPATH=/path/to/ROCO/test
-JSONPATH=./data
+TRAINPATH=/data/elo/data/roco-dataset/data/train
+VALPATH=/data/elo/data/roco-dataset/data/validation
+TESTPATH=/data/elo/data/roco-dataset/data/test
+JSONPATH=/data/elo/data/roco-dataset/data
 CREATEJSONPROG=./main/create_jsons.py
 
 chmod +x $CREATEJSONPROG
