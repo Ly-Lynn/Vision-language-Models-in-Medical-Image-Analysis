@@ -1,6 +1,5 @@
 """
-Simple base classes cho medical datasets
-Chỉ hỗ trợ simple image-text pairs format
+Simple base classes for medical datasets
 """
 
 import os
@@ -27,7 +26,7 @@ logger = get_logger(__name__)
 
 class BaseMedicalDataset(Dataset, ABC):
     """
-    Abstract base class cho tất cả medical datasets
+    Abstract base class for all medical datasets
     Simple format: image-text pairs
     """
     
@@ -41,9 +40,9 @@ class BaseMedicalDataset(Dataset, ABC):
     ):
         """
         Args:
-            data_root: Root directory chứa data files
+            data_root: Root directory containing data files
             split: Data split ('train', 'test', 'val', etc.)
-            model_type: 'medclip' hoặc 'biomedclip'
+            model_type: 'medclip' or 'biomedclip'
             transform: Custom image transforms
         """
         super().__init__()
@@ -69,7 +68,7 @@ class BaseMedicalDataset(Dataset, ABC):
         
     @abstractmethod
     def _load_data(self) -> pd.DataFrame:
-        """Load data từ files và return DataFrame"""
+        """Load data from files and return DataFrame"""
         pass
         
     @abstractmethod
@@ -104,7 +103,7 @@ class BaseMedicalDataset(Dataset, ABC):
         return new_im
         
     def _load_image(self, img_path: str) -> Image.Image:
-        """Load image từ path, hỗ trợ cả DICOM và standard formats"""
+        """Load image from path, supports both DICOM and standard formats"""
         if img_path.lower().endswith('.dcm'):
             # Load DICOM file
             dicom_data = pydicom.dcmread(img_path)
@@ -133,7 +132,7 @@ class BaseMedicalDataset(Dataset, ABC):
 
 class BaseContrastiveDataset(BaseMedicalDataset):
     """
-    Base class cho contrastive learning datasets
+    Base class for contrastive learning datasets
     Simple image-text pairs format
     """
     
@@ -172,7 +171,7 @@ class BaseContrastiveDataset(BaseMedicalDataset):
 
 class BaseClassificationDataset(BaseMedicalDataset):
     """
-    Base class cho classification datasets
+    Base class for classification datasets
     """
     
     def __init__(self, **kwargs):
@@ -209,7 +208,7 @@ class BaseClassificationDataset(BaseMedicalDataset):
 
 class BaseCollator(ABC):
     """
-    Abstract base class cho data collators
+    Abstract base class for data collators
     """
     
     def __init__(
