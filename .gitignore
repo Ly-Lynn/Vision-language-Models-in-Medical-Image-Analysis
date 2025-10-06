@@ -1,0 +1,5 @@
+BioMedCLIP/*
+MedCLIP/*
+*/local_data/*
+pretrained/*
+*.ipynb

@@ -1,8 +1,0 @@
-clip
-numpy
-pandas==1.3.4
-torch
-torchvision
-tqdm
-yacs
-tensorboard
