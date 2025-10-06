@@ -3,3 +3,4 @@ MedCLIP/*
 */local_data/*
 pretrained/*
 *.ipynb
+example.py
