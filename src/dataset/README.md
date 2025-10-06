@@ -1,4 +1,4 @@
-# 🏗️ Cấu trúc Dataset Module
+# 🏗️ Dataset Module
 
 ## 📁 File Structure
 
@@ -192,16 +192,3 @@ for batch in loader:
 ```
 
 ---
-
-## 🎯 Summary
-
-Module này cung cấp:
-
-✅ **Unified interface** cho medical datasets  
-✅ **Multi-model support** (MedCLIP + BiomedCLIP)  
-✅ **Flexible configuration** options  
-✅ **Production-ready** error handling  
-✅ **Extensible architecture** cho future needs  
-✅ **Comprehensive documentation** và examples  
-
-Thiết kế này đảm bảo code dễ maintain, extend, và sử dụng cho cả research và production environments.
