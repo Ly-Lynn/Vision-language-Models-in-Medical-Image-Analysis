@@ -1,4 +1,5 @@
 """
+Complete testing
 Factory for creating vision-language models and classifiers
 """
 
@@ -7,7 +8,7 @@ import torch
 import torch.nn as nn
 
 # Import base classes
-from .model import (
+from model import (
     BaseVisionLanguageModel,
     BaseClassifier,
     BaseZeroShotClassifier,
@@ -16,7 +17,7 @@ from .model import (
 )
 
 # Import concrete implementations
-from .medclip import (
+from medclip import (
     MedCLIPModel,
     MedCLIPVisionModel,
     MedCLIPVisionModelViT,
@@ -24,18 +25,17 @@ from .medclip import (
     SuperviseClassifier,
     PromptTuningClassifier
 )
-from .biomedclip import (
+from biomedclip import (
     BioMedCLIPModel,
     BioMedCLIPClassifier,
     BioMedCLIPFeatureExtractor
 )
 
 # Import constants
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from constants import SUPPORTED_MODELS, DEFAULT_TEMPLATES
+import logging_config
 
+logger = logging_config.get_logger(__name__)
 
 class ModelFactory:
     """
@@ -77,7 +77,6 @@ class ModelFactory:
         'biomedclip': {
             'model_name': 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
             'context_length': 256,
-            'device': None,
             'checkpoint': None,
         }
     }
@@ -88,7 +87,6 @@ class ModelFactory:
         model_type: str = 'medclip',
         variant: str = 'base',
         checkpoint: Optional[str] = None,
-        device: Optional[str] = None,
         pretrained: bool = True,
         **kwargs
     ) -> BaseVisionLanguageModel:
@@ -99,7 +97,6 @@ class ModelFactory:
             model_type: 'medclip' or 'biomedclip'
             variant: Model variant ('base', 'vision_resnet', 'vision_vit')
             checkpoint: Path to model checkpoint
-            device: Device to load model on
             pretrained: Whether to load pretrained weights
             **kwargs: Additional model-specific arguments
             
@@ -151,17 +148,14 @@ class ModelFactory:
                 
         elif model_type == 'biomedclip':
             # Create BioMedCLIP model
-            if device:
-                config['device'] = device
-                
             model = model_class(**config)
             
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
         
         # Move to device if specified
-        if device and hasattr(model, 'to'):
-            model = model.to(device)
+        if hasattr(model, 'to'):
+            model = model.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
         
         return model
     
@@ -224,12 +218,18 @@ class ModelFactory:
             if class_names is None:
                 raise ValueError("class_names required for zero-shot classification")
                 
-            classifier = classifier_class(
-                medclip_model=model if model_type == 'medclip' else None,
-                biomedclip_model=model if model_type == 'biomedclip' else None,
-                ensemble=ensemble,
-                **kwargs
-            )
+            if model_type == 'medclip':
+                classifier = classifier_class(
+                    medclip_model=model,
+                    ensemble=ensemble,
+                    **kwargs
+                )
+            else:  # biomedclip
+                classifier = classifier_class(
+                    biomedclip_model=model,
+                    ensemble=ensemble,
+                    **kwargs
+                )
             
         elif task_type == 'supervised':
             if num_classes is None:
@@ -279,7 +279,6 @@ class ModelFactory:
         templates: Optional[List[str]] = None,
         ensemble: bool = True,
         checkpoint: Optional[str] = None,
-        device: Optional[str] = None,
         **kwargs
     ) -> BaseClassifier:
         """
@@ -291,7 +290,6 @@ class ModelFactory:
             templates: Optional custom templates
             ensemble: Whether to use prompt ensembling
             checkpoint: Model checkpoint path
-            device: Device to load model on
             **kwargs: Additional arguments
             
         Returns:
@@ -301,8 +299,7 @@ class ModelFactory:
         model = cls.create_model(
             model_type=model_type,
             checkpoint=checkpoint,
-            device=device,
-            **kwargs.pop('model_kwargs', {})
+            **kwargs
         )
         
         # Get default template if not provided
@@ -328,7 +325,6 @@ class ModelFactory:
         task_mode: str = 'multiclass',
         freeze_encoder: bool = True,
         checkpoint: Optional[str] = None,
-        device: Optional[str] = None,
         **kwargs
     ) -> BaseClassifier:
         """
@@ -340,7 +336,6 @@ class ModelFactory:
             task_mode: 'binary', 'multiclass', or 'multilabel'
             freeze_encoder: Whether to freeze encoder weights
             checkpoint: Model checkpoint path
-            device: Device to load model on
             **kwargs: Additional arguments
             
         Returns:
@@ -350,7 +345,6 @@ class ModelFactory:
         model = cls.create_model(
             model_type=model_type,
             checkpoint=checkpoint,
-            device=device,
             **kwargs.pop('model_kwargs', {})
         )
         
@@ -393,19 +387,19 @@ class ModelFactory:
     
     @classmethod
     def print_registry(cls):
-        """Print information about available models and classifiers"""
-        print("🏭 Model Factory Registry")
-        print("=" * 50)
+        """logger.info information about available models and classifiers"""
+        logger.info("🏭 Model Factory Registry")
+        logger.info("=" * 50)
         
-        print("\n🤖 Available Models:")
+        logger.info("🤖 Available Models:")
         for model_type, variants in cls.MODEL_REGISTRY.items():
-            print(f"  {model_type}: {list(variants.keys())}")
+            logger.info(f"  {model_type}: {list(variants.keys())}")
         
-        print("\n🎯 Available Classifiers:")
+        logger.info("🎯 Available Classifiers:")
         for model_type, task_types in cls.CLASSIFIER_REGISTRY.items():
-            print(f"  {model_type}: {list(task_types.keys())}")
+            logger.info(f"  {model_type}: {list(task_types.keys())}")
         
-        print(f"\n📚 Supported Model Types: {SUPPORTED_MODELS}")
+        logger.info(f"📚 Supported Model Types: {SUPPORTED_MODELS}")
 
 
 # Convenience functions
@@ -438,7 +432,6 @@ def create_medclip(
 
 def create_biomedclip(
     checkpoint: Optional[str] = None,
-    device: Optional[str] = None,
     **kwargs
 ) -> BaseVisionLanguageModel:
     """
@@ -446,7 +439,6 @@ def create_biomedclip(
     
     Args:
         checkpoint: Optional checkpoint path
-        device: Device to load model on
         **kwargs: Additional arguments
         
     Returns:
@@ -455,21 +447,20 @@ def create_biomedclip(
     return ModelFactory.create_model(
         model_type='biomedclip',
         checkpoint=checkpoint,
-        device=device,
         **kwargs
     )
 
 
 def demo_factory():
     """Demo usage of ModelFactory"""
-    print("🏭 Model Factory Demo")
-    print("=" * 50)
+    logger.info("🏭 Model Factory Demo")
+    logger.info("=" * 50)
     
-    # Print registry
+     # Print registry
     ModelFactory.print_registry()
     
     # Test model creation
-    print("\n📦 Testing Model Creation:")
+    logger.info("📦 Testing Model Creation:")
     
     models_to_test = [
         ('medclip', 'base'),
@@ -483,12 +474,12 @@ def demo_factory():
                 variant=variant,
                 pretrained=False  # Don't download weights for demo
             )
-            print(f"  ✅ {model_type} {variant}: {type(model).__name__}")
+            logger.info(f"  ✅ {model_type} {variant}: {type(model).__name__}")
         except Exception as e:
-            print(f"  ❌ {model_type} {variant}: {e}")
+            logger.error(f"  ❌ {model_type} {variant}: {e}")
     
     # Test classifier creation
-    print("\n🎯 Testing Classifier Creation:")
+    logger.info("🎯 Testing Classifier Creation:")
     
     classifiers_to_test = [
         ('medclip', 'zeroshot', ['normal', 'pneumonia']),
@@ -518,22 +509,22 @@ def demo_factory():
                     num_classes=len(class_names)
                 )
                 
-            print(f"  ✅ {model_type} {task_type}: {type(classifier).__name__}")
+            logger.info(f"  ✅ {model_type} {task_type}: {type(classifier).__name__}")
             
         except Exception as e:
-            print(f"  ❌ {model_type} {task_type}: {e}")
+            logger.error(f"  ❌ {model_type} {task_type}: {e}")
     
     # Test convenience functions
-    print("\n🔧 Testing Convenience Functions:")
+    logger.info("🔧 Testing Convenience Functions:")
     
     try:
         # Test MedCLIP creation
         medclip = create_medclip(pretrained=False)
-        print(f"  ✅ create_medclip: {type(medclip).__name__}")
+        logger.info(f"  ✅ create_medclip: {type(medclip).__name__}")
         
         # Test BioMedCLIP creation
         biomedclip = create_biomedclip()
-        print(f"  ✅ create_biomedclip: {type(biomedclip).__name__}")
+        logger.info(f"  ✅ create_biomedclip: {type(biomedclip).__name__}")
         
         # Test zero-shot classifier
         zs_classifier = ModelFactory.create_zeroshot_classifier(
@@ -541,12 +532,12 @@ def demo_factory():
             class_names=['normal', 'abnormal'],
             ensemble=True
         )
-        print(f"  ✅ Zero-shot classifier: {type(zs_classifier).__name__}")
+        logger.info(f"  ✅ Zero-shot classifier: {type(zs_classifier).__name__}")
         
     except Exception as e:
-        print(f"  ❌ Error: {e}")
+        logger.error(f"  ❌ Error: {e}")
     
-    print("\n✅ Factory Demo completed!")
+    logger.info("✅ Factory Demo completed!")
 
 
 if __name__ == "__main__":

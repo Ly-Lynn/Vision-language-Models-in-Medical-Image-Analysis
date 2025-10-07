@@ -18,7 +18,6 @@ class BioMedCLIPModel(nn.Module):
         self,
         model_name: str = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
         context_length: int = 256,
-        device: str = None,
         checkpoint: Optional[str] = None
     ):
         """
@@ -27,16 +26,13 @@ class BioMedCLIPModel(nn.Module):
         Args:
             model_name: Name/path of the pretrained model from HuggingFace Hub
             context_length: Maximum context length for text tokenization
-            device: Device to load model on ('cuda' or 'cpu')
             checkpoint: Optional checkpoint path to load model weights from
         """
         super().__init__()
         
-        # Set device
-        if device is None:
-            self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        else:
-            self.device = torch.device(device)
+
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
         
         # Load model and preprocessing
         self.model, self.preprocess = open_clip.create_model_from_pretrained(model_name)

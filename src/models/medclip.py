@@ -10,7 +10,7 @@ from transformers import AutoModel, AutoTokenizer
 import numpy as np
 import torchvision
 
-from . import constants
+import constants
 
 class MedCLIPTextModel(nn.Module):
     def __init__(self,
@@ -52,7 +52,7 @@ class MedCLIPVisionModel(nn.Module):
         num_fts = self.model.fc.in_features
         self.model.fc = nn.Linear(num_fts, 512, bias=False) # projection head
         if checkpoint is not None:
-            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME))
+            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
             missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=False)
             print('missing keys:', missing_keys)
             print('unexpected keys:', unexpected_keys)
@@ -63,7 +63,7 @@ class MedCLIPVisionModel(nn.Module):
     def load_from_medclip(self, checkpoint):
         '''handle key mismatch of medclip and the vision encoder.
         '''
-        state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME))
+        state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
         new_state_dict = {}
         for key in state_dict.keys():
             if 'vision_model' in key:
@@ -94,7 +94,7 @@ class MedCLIPVisionModelViT(nn.Module):
         self.model = AutoModel.from_pretrained(self.vit_type)
         self.projection_head = nn.Linear(768, 512, bias=False)
         if checkpoint is not None:
-            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME))
+            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
             missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=False)
             print('missing keys:', missing_keys)
             print('unexpected keys:', unexpected_keys)
@@ -105,7 +105,7 @@ class MedCLIPVisionModelViT(nn.Module):
     def load_from_medclip(self, checkpoint):
         '''handle key mismatch of medclip and the vision encoder.
         '''
-        state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME))
+        state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
         new_state_dict = {}
         for key in state_dict.keys():
             if 'vision_model' in key:
@@ -144,8 +144,8 @@ class MedCLIPModel(nn.Module):
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
 
         if checkpoint is not None:
-            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME))
-            self.load_state_dict(state_dict)
+            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
+            self.load_state_dict(state_dict, strict=False)
             print('load model weight from:', checkpoint)
 
     def from_pretrained(self, input_dir=None):
@@ -181,8 +181,8 @@ class MedCLIPModel(nn.Module):
             zipf.close()
             print('\n Download pretrained model from:', pretrained_url)
         
-        state_dict = torch.load(os.path.join(input_dir, constants.WEIGHTS_NAME))
-        self.load_state_dict(state_dict)
+        state_dict = torch.load(os.path.join(input_dir, constants.WEIGHTS_NAME), map_location='cpu')
+        self.load_state_dict(state_dict, strict=False)
         print('load model weight from:', input_dir)
 
     def encode_text(self, input_ids=None, attention_mask=None):
