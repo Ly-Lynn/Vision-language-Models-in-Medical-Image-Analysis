@@ -1,6 +1,6 @@
 BioMedCLIP/*
 MedCLIP/*
-*/local_data/*
+local_data/*
 pretrained/*
 *.ipynb
 example.py
