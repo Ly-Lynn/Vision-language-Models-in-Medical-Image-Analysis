@@ -19,8 +19,6 @@ from .model import (
 # Import concrete implementations
 from .medclip import (
     MedCLIPModel,
-    MedCLIPVisionModel,
-    MedCLIPVisionModelViT,
     PromptClassifier,
     SuperviseClassifier,
     PromptTuningClassifier
@@ -29,6 +27,10 @@ from .biomedclip import (
     BioMedCLIPModel,
     BioMedCLIPClassifier,
     BioMedCLIPFeatureExtractor
+)
+from .entrep import (
+    ENTRepModel,
+    ENTRepClassifier
 )
 
 # Import constants
@@ -46,37 +48,49 @@ class ModelFactory:
     MODEL_REGISTRY = {
         'medclip': {
             'base': MedCLIPModel,
-            'vision_resnet': MedCLIPVisionModel,
-            'vision_vit': MedCLIPVisionModelViT,
         },
         'biomedclip': {
             'base': BioMedCLIPModel,
+        },
+        'entrep': {
+            'base': ENTRepModel,
         }
     }
     
     # Registry of classifiers
     CLASSIFIER_REGISTRY = {
         'medclip': {
-            'zeroshot': PromptClassifier,
-            'supervised': SuperviseClassifier,
-            'prompt_tuning': PromptTuningClassifier,
+            'zeroshot': PromptClassifier
         },
         'biomedclip': {
-            'zeroshot': BioMedCLIPClassifier,
-            'supervised': BioMedCLIPFeatureExtractor,
+            'zeroshot': BioMedCLIPClassifier
+        },
+        'entrep': {
+            'zeroshot': ENTRepClassifier
         }
     }
     
     # Default configurations
     DEFAULT_CONFIGS = {
         'medclip': {
-            'vision_cls': MedCLIPVisionModelViT,  # Default to ViT
+            'text_encoder_type': 'bert',
+            'vision_encoder_type': 'vit',  # 'resnet' or 'vit'
             'logit_scale_init_value': 0.07,
             'checkpoint': None,
         },
         'biomedclip': {
             'model_name': 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
             'context_length': 256,
+            'checkpoint': None,
+        },
+        'entrep': {
+            'feature_dim': 768,
+            'dropout_rate': 0.3,
+            'dropout': 0.1,
+            'num_classes': 7,
+            'freeze_backbone': False,
+            'text_encoder_type': 'clip',
+            'vision_encoder_type': 'endovit',
             'checkpoint': None,
         }
     }
@@ -124,30 +138,19 @@ class ModelFactory:
         
         # Create model based on type
         if model_type == 'medclip':
-            if variant == 'base':
-                # Create full MedCLIP model
-                vision_cls = config.pop('vision_cls', MedCLIPVisionModelViT)
-                model = model_class(
-                    vision_cls=vision_cls,
-                    checkpoint=config.pop('checkpoint', None),
-                    vision_checkpoint=config.pop('vision_checkpoint', None),
-                    **config
-                )
-                
-                # Load pretrained weights if requested
-                if pretrained and checkpoint is None:
-                    model.from_pretrained()
-                    
-            else:
-                # Create vision-only model
-                model = model_class(
-                    checkpoint=config.pop('checkpoint', None),
-                    medclip_checkpoint=config.pop('medclip_checkpoint', None),
-                    **config
-                )
+            # Create MedCLIP model with flexible encoders
+            model = model_class(**config)
+            
+            # Load pretrained weights if requested
+            if pretrained and checkpoint is None:
+                model.from_pretrained()
                 
         elif model_type == 'biomedclip':
             # Create BioMedCLIP model
+            model = model_class(**config)
+            
+        elif model_type == 'entrep':
+            # Create ENTRep model
             model = model_class(**config)
             
         else:
@@ -198,6 +201,8 @@ class ModelFactory:
                 model_type = 'medclip'
             elif isinstance(model, BioMedCLIPModel):
                 model_type = 'biomedclip'
+            elif isinstance(model, ENTRepModel):
+                model_type = 'entrep'
             else:
                 raise ValueError(f"Unknown model type: {type(model)}")
         
@@ -224,48 +229,19 @@ class ModelFactory:
                     ensemble=ensemble,
                     **kwargs
                 )
-            else:  # biomedclip
+            elif model_type == 'biomedclip':
                 classifier = classifier_class(
                     biomedclip_model=model,
                     ensemble=ensemble,
                     **kwargs
                 )
-            
-        elif task_type == 'supervised':
-            if num_classes is None:
-                raise ValueError("num_classes required for supervised classification")
-                
-            if model_type == 'medclip':
-                # For MedCLIP supervised classifier
+            elif model_type == 'entrep':
                 classifier = classifier_class(
-                    vision_model=model.vision_model if hasattr(model, 'vision_model') else model,
-                    num_class=num_classes,
-                    mode=kwargs.pop('mode', 'multiclass'),
-                    **kwargs
-                )
-            else:
-                # For BioMedCLIP supervised classifier
-                classifier = classifier_class(
-                    biomedclip_model=model,
+                    entrep_model=model,
                     num_classes=num_classes,
-                    freeze_encoder=freeze_encoder,
+                    ensemble=ensemble,
                     **kwargs
                 )
-                
-        elif task_type == 'prompt_tuning':
-            if model_type != 'medclip':
-                raise ValueError(f"Prompt tuning not available for {model_type}")
-                
-            classifier = classifier_class(
-                medclip_model=model,
-                n_context=kwargs.pop('n_context', 4),
-                class_specific_context=kwargs.pop('class_specific_context', False),
-                num_class=num_classes,
-                mode=kwargs.pop('mode', 'multiclass'),
-                ensemble=ensemble,
-                **kwargs
-            )
-            
         else:
             raise ValueError(f"Unknown task type: {task_type}")
         
@@ -313,6 +289,7 @@ class ModelFactory:
             task_type='zeroshot',
             class_names=class_names,
             ensemble=ensemble,
+            num_classes=len(class_names),
             templates=templates,
             **kwargs
         )
@@ -404,7 +381,8 @@ class ModelFactory:
 
 # Convenience functions
 def create_medclip(
-    variant: str = 'base',
+    text_encoder: str = 'bert',
+    vision_encoder: str = 'vit',
     pretrained: bool = True,
     checkpoint: Optional[str] = None,
     **kwargs
@@ -413,7 +391,8 @@ def create_medclip(
     Create MedCLIP model
     
     Args:
-        variant: 'base', 'vision_resnet', or 'vision_vit'
+        text_encoder: 'bert' (currently only BERT supported)
+        vision_encoder: 'resnet' or 'vit'
         pretrained: Whether to load pretrained weights
         checkpoint: Optional checkpoint path
         **kwargs: Additional arguments
@@ -423,7 +402,9 @@ def create_medclip(
     """
     return ModelFactory.create_model(
         model_type='medclip',
-        variant=variant,
+        variant='base',
+        text_encoder_type=text_encoder,
+        vision_encoder_type=vision_encoder,
         pretrained=pretrained,
         checkpoint=checkpoint,
         **kwargs
@@ -450,110 +431,34 @@ def create_biomedclip(
         **kwargs
     )
 
-
-def demo_factory():
-    """Demo usage of ModelFactory"""
-    logger.info("🏭 Model Factory Demo")
-    logger.info("=" * 50)
-    
-     # Print registry
-    ModelFactory.print_registry()
-    
-    # Test model creation
-    logger.info("📦 Testing Model Creation:")
-    
-    models_to_test = [
-        ('medclip', 'base'),
-        ('biomedclip', 'base'),
-    ]
-    
-    for model_type, variant in models_to_test:
-        try:
-            model = ModelFactory.create_model(
-                model_type=model_type,
-                variant=variant,
-                pretrained=False  # Don't download weights for demo
-            )
-            logger.info(f"  ✅ {model_type} {variant}: {type(model).__name__}")
-        except Exception as e:
-            logger.error(f"  ❌ {model_type} {variant}: {e}")
-    
-    # Test classifier creation
-    logger.info("🎯 Testing Classifier Creation:")
-    
-    classifiers_to_test = [
-        ('medclip', 'zeroshot', ['normal', 'pneumonia']),
-        ('biomedclip', 'zeroshot', ['normal', 'covid']),
-    ]
-    
-    for model_type, task_type, class_names in classifiers_to_test:
-        try:
-            # Create model first
-            model = ModelFactory.create_model(
-                model_type=model_type,
-                pretrained=False
-            )
-            
-            # Create classifier
-            if task_type == 'zeroshot':
-                classifier = ModelFactory.create_classifier(
-                    model=model,
-                    task_type=task_type,
-                    class_names=class_names,
-                    ensemble=True
-                )
-            else:
-                classifier = ModelFactory.create_classifier(
-                    model=model,
-                    task_type=task_type,
-                    num_classes=len(class_names)
-                )
-                
-            logger.info(f"  ✅ {model_type} {task_type}: {type(classifier).__name__}")
-            
-        except Exception as e:
-            logger.error(f"  ❌ {model_type} {task_type}: {e}")
-    
-    # Test convenience functions
-    logger.info("🔧 Testing Convenience Functions:")
-    
-    try:
-        # Test MedCLIP creation
-        medclip = create_medclip(pretrained=False)
-        logger.info(f"  ✅ create_medclip: {type(medclip).__name__}")
-        
-        # Test BioMedCLIP creation
-        biomedclip = create_biomedclip()
-        logger.info(f"  ✅ create_biomedclip: {type(biomedclip).__name__}")
-        
-        # Test zero-shot classifier
-        zs_classifier = ModelFactory.create_zeroshot_classifier(
-            model_type='medclip',
-            class_names=['normal', 'abnormal'],
-            ensemble=True
-        )
-        logger.info(f"  ✅ Zero-shot classifier: {type(zs_classifier).__name__}")
-        
-    except Exception as e:
-        logger.error(f"  ❌ Error: {e}")
-    
-    logger.info("✅ Factory Demo completed!")
-
-
 # Wrapper functions for easier import
 def create_model(model_type: str = 'medclip', **kwargs):
     """Create a model using ModelFactory"""
     return ModelFactory.create_model(model_type=model_type, **kwargs)
 
-
-def create_medclip(**kwargs):
-    """Create a MedCLIP model"""
-    return ModelFactory.create_model(model_type='medclip', **kwargs)
-
-
-def create_biomedclip(**kwargs):
-    """Create a BioMedCLIP model"""
-    return ModelFactory.create_model(model_type='biomedclip', **kwargs)
+def create_entrep(
+    text_encoder: str = 'clip',
+    vision_encoder: str = 'clip',
+    **kwargs
+) -> BaseVisionLanguageModel:
+    """
+    Create ENTRep model
+    
+    Args:
+        text_encoder: 'clip' or 'none'
+        vision_encoder: 'clip', 'endovit', or 'dinov2'
+        **kwargs: Additional arguments
+        
+    Returns:
+        ENTRep model instance
+    """
+    return ModelFactory.create_model(
+        model_type='entrep',
+        variant='base',
+        text_encoder_type=text_encoder,
+        vision_encoder_type=vision_encoder,
+        **kwargs
+    )
 
 
 if __name__ == "__main__":

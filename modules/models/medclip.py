@@ -128,17 +128,26 @@ class MedCLIPVisionModelViT(nn.Module):
 
 class MedCLIPModel(nn.Module):
     def __init__(self,
-        vision_cls=MedCLIPVisionModel,
+        text_encoder_type='bert',
+        vision_encoder_type='vit',
         checkpoint=None,
         vision_checkpoint=None,
         logit_scale_init_value=0.07,
+        **kwargs
         ) -> None:
         super().__init__()
-        text_proj_bias = False
-        assert vision_cls in [MedCLIPVisionModel, MedCLIPVisionModelViT], 'vision_cls should be one of [MedCLIPVisionModel, MedCLIPVisionModelViT]'
-
-        self.vision_model = vision_cls(checkpoint=vision_checkpoint)
-        self.text_model = MedCLIPTextModel(proj_bias=False)
+        
+        # Store encoder types
+        self.text_encoder_type = text_encoder_type
+        self.vision_encoder_type = vision_encoder_type
+        
+        # New flexible mode - use encoder types
+        self.vision_model = self._create_vision_encoder(
+            vision_encoder_type, vision_checkpoint
+        )
+        
+        # Create text encoder
+        self.text_model = self._create_text_encoder(text_encoder_type)
 
         # learnable temperature for contrastive loss
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
@@ -147,6 +156,31 @@ class MedCLIPModel(nn.Module):
             state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
             self.load_state_dict(state_dict, strict=False)
             print('load model weight from:', checkpoint)
+    
+    def _create_text_encoder(self, encoder_type: str):
+        """Create text encoder based on type"""
+        if encoder_type == 'bert':
+            return MedCLIPTextModel(proj_bias=False)
+        else:
+            raise ValueError(f"Unsupported text encoder type: {encoder_type}")
+    
+    def _create_vision_encoder(self, encoder_type: str, checkpoint=None):
+        """Create vision encoder based on type"""
+        if encoder_type == 'resnet':
+            return MedCLIPVisionModel(checkpoint=checkpoint)
+        elif encoder_type == 'vit':
+            return MedCLIPVisionModelViT(checkpoint=checkpoint)
+        else:
+            raise ValueError(f"Unsupported vision encoder type: {encoder_type}. Use 'resnet' or 'vit'")
+    
+    def get_encoder_info(self) -> dict:
+        """Get information about current encoders"""
+        return {
+            'text_encoder': self.text_encoder_type,
+            'vision_encoder': self.vision_encoder_type,
+            'vision_model_type': type(self.vision_model).__name__,
+            'text_model_type': type(self.text_model).__name__
+        }
 
     def from_pretrained(self, input_dir=None):
         '''
@@ -155,18 +189,20 @@ class MedCLIPModel(nn.Module):
         import wget
         import zipfile
         pretrained_url = None
-        if isinstance(self.vision_model, MedCLIPVisionModel):
+        
+        # Determine pretrained model based on vision encoder type
+        if self.vision_encoder_type == 'resnet' or isinstance(self.vision_model, MedCLIPVisionModel):
             # resnet
             pretrained_url = constants.PRETRAINED_URL_MEDCLIP_RESNET
             if input_dir is None:
                 input_dir = './pretrained/medclip-resnet'
-        elif isinstance(self.vision_model, MedCLIPVisionModelViT):
+        elif self.vision_encoder_type == 'vit' or isinstance(self.vision_model, MedCLIPVisionModelViT):
             # ViT
             pretrained_url = constants.PRETRAINED_URL_MEDCLIP_VIT
             if input_dir is None:
                 input_dir = './pretrained/medclip-vit'
         else:
-            raise ValueError(f'We only have pretrained weight for MedCLIP-ViT or MedCLIP-ResNet, get {type(self.vision_model)} instead.')
+            raise ValueError(f'We only have pretrained weight for MedCLIP-ViT or MedCLIP-ResNet, got vision_encoder_type={self.vision_encoder_type}')
 
         if not os.path.exists(input_dir):
             os.makedirs(input_dir)
