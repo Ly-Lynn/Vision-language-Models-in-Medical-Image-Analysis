@@ -35,7 +35,7 @@ class RSNADataset(BaseClassificationDataset):
     
     def __init__(
         self,
-        data_root: str = 'local_data',
+        data_root: str = '../local_data',
         split: str = 'test',
         model_type: str = 'medclip',
         datalist: Optional[List[str]] = None,
@@ -56,13 +56,15 @@ class RSNADataset(BaseClassificationDataset):
                 datalist = [f'rsna-{split}']
                 
         self.datalist = datalist
-        
+        self.data_root = os.path.join(data_root, "rsna")
         super().__init__(
-            data_root=data_root,
+            data_root=self.data_root,
             split=split,
             model_type=model_type,
             **kwargs
         )
+        
+
     
     def _load_data(self) -> pd.DataFrame:
         """Load RSNA data from files"""
@@ -107,7 +109,6 @@ class RSNADataset(BaseClassificationDataset):
         # Check if required files exist
         img_folder_path = os.path.join(rsna_data_path, "stage_2_train_images")
         train_csv_path = os.path.join(rsna_data_path, "stage_2_train_labels.csv")
-        
         if not os.path.exists(img_folder_path) or not os.path.exists(train_csv_path):
             logger.info(f"RSNA data not found in {self.data_root}, preparing data")
             if not download_rsna_dataset():

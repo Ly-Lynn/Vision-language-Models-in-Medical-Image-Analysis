@@ -263,12 +263,11 @@ def get_dataset_info(dataset_name: str) -> Dict:
         Dictionary chứa dataset info
     """
     from .constants import DATASET_CONFIGS
-    
     if dataset_name not in DATASET_CONFIGS:
         raise ValueError(f"Unknown dataset: {dataset_name}. Available: {list(DATASET_CONFIGS.keys())}")
         
     config = DATASET_CONFIGS[dataset_name]
-    
+    print(config)
     return {
         'name': dataset_name,
         'tasks': config['tasks'],
@@ -283,7 +282,7 @@ def print_dataset_summary():
     """
     In summary của tất cả datasets
     """
-    from constants import DATASET_CONFIGS
+    from .constants import DATASET_CONFIGS
     
     logger.info("📊 Medical Datasets Summary")
     logger.info("=" * 50)

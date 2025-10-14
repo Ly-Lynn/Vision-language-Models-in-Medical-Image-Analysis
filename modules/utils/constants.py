@@ -17,6 +17,12 @@ COVID_TASKS = [
     'COVID',
 ]
 
+# MIMIC Dataset
+MIMIC_TASKS = [
+    'Normal',
+    'Abnormal',
+]
+
 # RSNA Dataset  
 RSNA_TASKS = [
     'Normal',
@@ -24,6 +30,21 @@ RSNA_TASKS = [
 ]
 
 
+
+MIMIC_CLASS_PROMPTS = {
+    'Normal': {
+        'adjective': ['clear', 'normal', 'healthy'],
+        'description': ['chest', 'lungs', 'findings'],
+        'subtype': ['x-ray', 'radiograph', 'image'],
+        'location': ['', 'bilateral', 'throughout'],
+    },
+    'Abnormal': {
+        'adjective': ['abnormal', 'pathological', 'irregular'],
+        'description': ['findings', 'opacity', 'infiltrate'],
+        'subtype': ['consolidation', 'effusion', 'pneumonia'],
+        'location': ['in lung', 'bilateral', 'unilateral'],
+    }
+}
 
 COVID_CLASS_PROMPTS = {
     'COVID': {
@@ -78,14 +99,14 @@ PRETRAINED_URL_MEDCLIP_VIT = 'https://github.com/RyanWangZf/MedCLIP/raw/main/med
 # Dataset configurations
 DATASET_CONFIGS = {
     'mimic': {
-        'tasks': None,
-        'class_prompts': None,
+        'tasks': MIMIC_TASKS,
+        'class_prompts': MIMIC_CLASS_PROMPTS,
         'data_files': {
-            'train': None,
-            'test': None,
-            'finetune': None
+            'train': 'mimic-train-meta.csv',
+            'test': 'mimic-test-meta.csv',
+            'finetune': 'mimic-finetune-meta.csv'
         },
-        'mode': 'contrastive'
+        'mode': 'binary'
     },
     'covid': {
         'tasks': COVID_TASKS,

@@ -144,7 +144,7 @@ class DatasetFactory:
         task_type: str = 'zeroshot',
         model_type: str = 'medclip',
         split: str = 'test',
-        data_root: str = './local_data',
+        data_root: str = '../local_data',
         batch_size: int = 16,
         shuffle: bool = False,
         num_workers: int = 0,
