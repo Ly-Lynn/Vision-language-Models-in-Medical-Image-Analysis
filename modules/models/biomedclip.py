@@ -243,7 +243,9 @@ class BioMedCLIPClassifier(nn.Module):
     def __init__(
         self,
         biomedclip_model: BioMedCLIPModel,
-        ensemble: bool = False
+        ensemble: bool = False,
+        templates: Optional[List[str]] = None,
+        **kwargs
     ):
         """
         Initialize BioMedCLIP classifier.
@@ -251,10 +253,91 @@ class BioMedCLIPClassifier(nn.Module):
         Args:
             biomedclip_model: Pretrained BioMedCLIP model
             ensemble: Whether to use prompt ensembling
+            templates: List of prompt templates (for compatibility with factory)
+            **kwargs: Additional arguments (for compatibility)
         """
         super().__init__()
         self.model = biomedclip_model
         self.ensemble = ensemble
+        self.templates = templates if templates else ["a medical image of {}"]
+    
+    def create_text_prompts(
+        self,
+        class_names: List[str]
+    ) -> List[str]:
+        """
+        Create text prompts for classes using templates.
+        
+        Args:
+            class_names: List of class names
+            
+        Returns:
+            List of text prompts
+        """
+        prompts = []
+        for class_name in class_names:
+            for template in self.templates:
+                prompts.append(template.format(class_name))
+        
+        return prompts
+    
+    def classify_with_templates(
+        self,
+        pixel_values: torch.Tensor,
+        class_names: List[str],
+        **kwargs
+    ) -> Dict:
+        """
+        Classify images using templates to generate prompts.
+        
+        Args:
+            pixel_values: Preprocessed image tensors
+            class_names: List of class names
+            
+        Returns:
+            Dictionary containing logits and class names
+        """
+        pixel_values = pixel_values.to(self.model.device)
+        class_similarities = []
+        
+        for cls_name in class_names:
+            # Generate prompts for this class using templates
+            prompts = []
+            for template in self.templates:
+                prompts.append(template.format(cls_name))
+            
+            # Encode all prompts for this class
+            template_similarities = []
+            for prompt in prompts:
+                # Encode text and image
+                text_features = self.model.encode_text(prompt)
+                image_features = self.model.encode_image(pixel_values)
+                
+                # Compute similarity
+                similarity = torch.cosine_similarity(image_features, text_features, dim=-1)
+                template_similarities.append(similarity)
+            
+            # Aggregate similarities across templates
+            template_similarities = torch.stack(template_similarities, dim=1)  # [batch, num_templates]
+            
+            if self.ensemble and len(self.templates) > 1:
+                # Average across templates for ensembling
+                cls_sim = torch.mean(template_similarities, dim=1)
+            else:
+                # Take max similarity across templates
+                cls_sim = torch.max(template_similarities, dim=1)[0]
+            
+            class_similarities.append(cls_sim)
+        
+        # Stack similarities for all classes
+        class_similarities = torch.stack(class_similarities, dim=1)  # [batch, num_classes]
+        
+        outputs = {
+            'logits': class_similarities,
+            'class_names': class_names,
+        }
+        
+        return outputs
     
     def forward(
         self,

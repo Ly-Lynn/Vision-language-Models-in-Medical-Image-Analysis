@@ -195,12 +195,12 @@ class MedCLIPModel(nn.Module):
             # resnet
             pretrained_url = constants.PRETRAINED_URL_MEDCLIP_RESNET
             if input_dir is None:
-                input_dir = './pretrained/medclip-resnet'
+                input_dir = '../pretrained/medclip-resnet'
         elif self.vision_encoder_type == 'vit' or isinstance(self.vision_model, MedCLIPVisionModelViT):
             # ViT
             pretrained_url = constants.PRETRAINED_URL_MEDCLIP_VIT
             if input_dir is None:
-                input_dir = './pretrained/medclip-vit'
+                input_dir = '../pretrained/medclip-vit'
         else:
             raise ValueError(f'We only have pretrained weight for MedCLIP-ViT or MedCLIP-ResNet, got vision_encoder_type={self.vision_encoder_type}')
 
