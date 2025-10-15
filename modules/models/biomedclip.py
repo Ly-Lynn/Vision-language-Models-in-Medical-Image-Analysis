@@ -39,6 +39,9 @@ class BioMedCLIPModel(nn.Module):
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.context_length = context_length
         
+        # print("preproccess: ", self.preprocess)
+        # raise
+        
         # Move model to device
         self.model = self.model.to(self.device)
         

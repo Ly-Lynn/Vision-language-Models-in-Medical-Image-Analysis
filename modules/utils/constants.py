@@ -1,3 +1,6 @@
+from torchvision import transforms
+
+
 # Model types
 BERT_TYPE = 'emilyalsentzer/Bio_ClinicalBERT'
 VIT_TYPE = 'microsoft/swin-tiny-patch4-window7-224'
@@ -7,6 +10,9 @@ BIOMEDCLIP_MODEL = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_
 IMG_SIZE = 224
 IMG_MEAN = 0.5862785803043838
 IMG_STD = 0.27950088968644304
+
+BIOMEDCLIP_MEAN = [0.48145466, 0.4578275, 0.40821073]
+BIOMEDCLIP_STD = [0.26862954, 0.26130258, 0.27577711]
 
 # Dataset paths
 DEFAULT_DATA_ROOT = 'local_data'
@@ -138,3 +144,34 @@ DEFAULT_TEMPLATES = {
     'biomedclip': 'this is a chest x-ray showing ',
     'general': 'this is an image of '
 }
+
+        # return transforms.Compose([
+        #     transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        # ])
+
+
+MODEL_TRANSFORMS = {
+    'medclip': transforms.Compose(
+        [
+            transforms.Resize((IMG_SIZE, IMG_SIZE)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        ]
+    ),
+    'biomedclip': transforms.Compose(
+        [
+            transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BICUBIC, antialias=True),
+            transforms.CenterCrop(IMG_SIZE),
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=BIOMEDCLIP_MEAN,
+                std=BIOMEDCLIP_STD
+            ),
+        ]
+    ),
+}
+
+

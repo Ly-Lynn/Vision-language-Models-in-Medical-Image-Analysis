@@ -53,12 +53,17 @@ class BaseMedicalDataset(Dataset, ABC):
         self.data_root = data_root
         self.split = split
         self.model_type = model_type
+
+
+        # khoa'fix
+        # # Set default transforms
+        # if transform is None:
+        #     self.transform = self._get_default_transform() # sửa lại cáinày
+        # else:
+        #     self.transform = transform
         
-        # Set default transforms
-        if transform is None:
-            self.transform = self._get_default_transform()
-        else:
-            self.transform = transform
+        self.transform = transform
+        
             
         # Load data
         self.df = self._load_data()
@@ -108,7 +113,8 @@ class BaseMedicalDataset(Dataset, ABC):
             # Load DICOM file
             dicom_data = pydicom.dcmread(img_path)
             img_array = dicom_data.pixel_array
-            
+            print(img_array.max())
+            print(img_array.min())
             # Normalize pixel values to 0-255 range
             img_array = img_array.astype(np.float32)
             img_array = (img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255
@@ -187,23 +193,33 @@ class BaseClassificationDataset(BaseMedicalDataset):
         """
         row = self.df.iloc[index]
         
-        # Load and preprocess image
-        img_path = row['imgpath'] if 'imgpath' in row else row['image_path']
-        img = self._load_image(img_path)
-        img_tensor = self.transform(img)
         
-        # Add channel dimension
-        if img_tensor.dim() == 2:
-            img_tensor = img_tensor.unsqueeze(0)
-        elif img_tensor.shape[0] == 1 and self.model_type == 'biomedclip':
-            # BiomedCLIP expects RGB
-            img_tensor = img_tensor.repeat(3, 1, 1)
-            
-        # Get labels
+            # Get labels
         class_names = self.get_class_names()
         labels = {class_name: int(row.get(class_name, 0)) for class_name in class_names}
         
-        return img_tensor, labels
+        # Load and preprocess image
+        img_path = row['imgpath'] if 'imgpath' in row else row['image_path']
+        img = self._load_image(img_path)
+
+        # khoa fix
+        if self.transform:
+            img_tensor = self.transform(img)
+            
+            # Add channel dimension
+            if img_tensor.dim() == 2:
+                img_tensor = img_tensor.unsqueeze(0)
+            elif img_tensor.shape[0] == 1 and self.model_type == 'biomedclip':
+                # BiomedCLIP expects RGB
+                img_tensor = img_tensor.repeat(3, 1, 1)
+            
+            return img_tensor, labels
+
+        else:
+            return img, labels
+        
+  
+        
 
 
 class BaseCollator(ABC):

@@ -76,11 +76,12 @@ class DatasetFactory:
             raise ValueError(f"Unknown model type: {model_type}. Available: {SUPPORTED_MODELS}")
             
         dataset_classes = cls.DATASET_REGISTRY[dataset_name]
-        
+   
         if dataset_type not in dataset_classes:
             raise ValueError(f"Dataset type '{dataset_type}' not available for {dataset_name}. Available: {list(dataset_classes.keys())}")
             
         # Get dataset class
+        print(dataset_type)
         dataset_class = dataset_classes[dataset_type]
         
         # Create dataset

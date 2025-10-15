@@ -81,7 +81,6 @@ class RSNADataset(BaseClassificationDataset):
             for task in RSNA_TASKS:
                 if task not in df.columns:
                     logger.error(f"Column {task} not found in RSNA data, adding it")
-                    
             return df
         
         def download_rsna_dataset():    
@@ -221,7 +220,9 @@ class RSNAZeroShotCollator(BaseCollator):
             img_tensor, labels = data
             inputs['pixel_values'].append(img_tensor)
             inputs['labels'].append(labels)
-            
+        
+        # print("Input pixel: ", inputs['pixel_values'])
+        # raise
         # Process images
         inputs['pixel_values'] = self._process_images(inputs['pixel_values'])
         
