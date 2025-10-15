@@ -15,7 +15,7 @@ def _extract_label(dict_label):
         
 n_prompt = 5
 dataset_name = "rsna"
-model_type = 'biomedclip'
+model_type = 'medclip'
 transform = MODEL_TRANSFORMS[model_type]
 batch_size = 128
 
@@ -26,7 +26,6 @@ dataset = DatasetFactory.create_dataset(
     data_root=DATA_ROOT,
     transform=None
 )
-
 
 
 model = ModelFactory.create_model(

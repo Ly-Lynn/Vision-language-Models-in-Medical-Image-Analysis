@@ -151,6 +151,7 @@ DEFAULT_TEMPLATES = {
 MODEL_TRANSFORMS = {
     'medclip': transforms.Compose(
         [
+            transforms.Lambda(lambda x: x.convert("RGB")),
             transforms.Resize((IMG_SIZE, IMG_SIZE)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])

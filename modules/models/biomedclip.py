@@ -118,6 +118,8 @@ class BioMedCLIPModel(nn.Module):
         else:
             # Assume tensor input
             image_tensors = images.to(self.device)
+            
+            
         
         # Encode images
         # with torch.no_grad():
