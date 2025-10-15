@@ -230,7 +230,7 @@ class MedCLIPModel(nn.Module):
         self.load_state_dict(state_dict, strict=False)
         print('load model weight from:', input_dir)
 
-    @torch.no_grad()
+
     def encode_text(self, input_ids=None, attention_mask=None):
         input_ids = input_ids.cuda()
         if attention_mask is not None:

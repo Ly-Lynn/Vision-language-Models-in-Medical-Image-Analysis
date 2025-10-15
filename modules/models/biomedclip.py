@@ -61,7 +61,6 @@ class BioMedCLIPModel(nn.Module):
         else:
             raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
 
-    @torch.no_grad()
     def encode_text(
         self,
         texts: Union[str, List[str]],
