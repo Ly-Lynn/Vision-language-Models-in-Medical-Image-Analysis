@@ -1,6 +1,7 @@
-# dataset
 from modules.dataset.factory import DatasetFactory
 from modules.utils.constants import MODEL_TRANSFORMS
+from tqdm import tqdm
+import numpy as np
 
 dataset_name = "covid"
 model_type = 'medclip'
@@ -14,8 +15,28 @@ dataset = DatasetFactory.create_dataset(
     transform=None
 )
 
+print(f"Dataset: {dataset_name}")
+print(f"Total samples: {len(dataset)}")
+
+widths, heights = [], []
+for i in tqdm(range(len(dataset)), desc="Scanning dataset"):
+    img, label = dataset[i]
+    w, h = img.size
+    widths.append(w)
+    heights.append(h)
+
+widths = np.array(widths)
+heights = np.array(heights)
+
+print("\n=== Dataset Statistics ===")
+print(f"Number of images: {len(dataset)}")
+print(f"Width  - min: {widths.min()}, max: {widths.max()}, mean: {widths.mean():.2f}")
+print(f"Height - min: {heights.min()}, max: {heights.max()}, mean: {heights.mean():.2f}")
+print(f"Most common size: ({int(np.median(widths))}, {int(np.median(heights))})")
+
+# Test one sample
 img, label = dataset[0]
 img_tensor = transform(img)
-print("Image tensor shape: ", img_tensor.shape)
-print("Image shape: ", img.size)
+print("\nExample image tensor shape:", img_tensor.shape)
+print("Original image size:", img.size)
 img.save("testing_covid.png")
