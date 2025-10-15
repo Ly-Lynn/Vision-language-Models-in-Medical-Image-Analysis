@@ -7,5 +7,4 @@ local_data/*
 pretrained/*
 *.ipynb
 example.py
-*/*/
 dataset/__pycache__
