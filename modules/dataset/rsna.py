@@ -54,7 +54,9 @@ class RSNADataset(BaseClassificationDataset):
                 datalist = [config['data_files'][split].replace('-meta.csv', '')]
             else:
                 datalist = [f'rsna-{split}']
-                
+        
+        self.cls_prompts = RSNA_CLASS_PROMPTS
+        self.template = DEFAULT_TEMPLATES[model_type]
         self.datalist = datalist
         self.data_root = os.path.join(data_root, "rsna")
         super().__init__(
@@ -138,6 +140,7 @@ class RSNADataset(BaseClassificationDataset):
         
     def get_class_prompts(self) -> Dict[str, List[str]]:
         return RSNA_CLASS_PROMPTS
+           
 
 
 class RSNAZeroShotCollator(BaseCollator):

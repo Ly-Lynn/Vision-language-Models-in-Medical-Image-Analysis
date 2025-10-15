@@ -145,11 +145,7 @@ DEFAULT_TEMPLATES = {
     'general': 'this is an image of '
 }
 
-        # return transforms.Compose([
-        #     transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
-        # ])
+
 
 
 MODEL_TRANSFORMS = {

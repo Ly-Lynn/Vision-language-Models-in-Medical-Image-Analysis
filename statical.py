@@ -3,7 +3,7 @@ from modules.utils.constants import MODEL_TRANSFORMS
 from tqdm import tqdm
 import numpy as np
 
-dataset_name = "covid"
+dataset_name = "rsna"
 model_type = 'medclip'
 transform = MODEL_TRANSFORMS[model_type]
 
@@ -34,7 +34,6 @@ print(f"Width  - min: {widths.min()}, max: {widths.max()}, mean: {widths.mean():
 print(f"Height - min: {heights.min()}, max: {heights.max()}, mean: {heights.mean():.2f}")
 print(f"Most common size: ({int(np.median(widths))}, {int(np.median(heights))})")
 
-# Test one sample
 img, label = dataset[0]
 img_tensor = transform(img)
 print("\nExample image tensor shape:", img_tensor.shape)

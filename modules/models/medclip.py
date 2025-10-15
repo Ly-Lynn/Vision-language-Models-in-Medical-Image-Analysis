@@ -3,6 +3,8 @@ import os
 import copy
 from collections import defaultdict
 import requests
+from typing import Optional, Dict, List, Union
+from PIL import Image
 
 import torch
 from torch import nn
@@ -11,6 +13,8 @@ import numpy as np
 import torchvision
 
 from ..utils import constants
+
+
 
 class MedCLIPTextModel(nn.Module):
     def __init__(self,
@@ -115,6 +119,7 @@ class MedCLIPVisionModelViT(nn.Module):
         print('unexpected keys:', unexpected_keys)
         print('load model weight from:', checkpoint)
 
+
     def forward(self, pixel_values, project=True):
         '''args:
         pixel_values: tensor with shape [bs, 3, img_size, img_size]
@@ -156,6 +161,10 @@ class MedCLIPModel(nn.Module):
             state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
             self.load_state_dict(state_dict, strict=False)
             print('load model weight from:', checkpoint)
+    
+        # proccessor (khoatn fix)
+        self.preprocess = constants.MODEL_TRANSFORMS['medclip']
+
     
     def _create_text_encoder(self, encoder_type: str):
         """Create text encoder based on type"""
@@ -221,6 +230,7 @@ class MedCLIPModel(nn.Module):
         self.load_state_dict(state_dict, strict=False)
         print('load model weight from:', input_dir)
 
+    @torch.no_grad()
     def encode_text(self, input_ids=None, attention_mask=None):
         input_ids = input_ids.cuda()
         if attention_mask is not None:
@@ -228,12 +238,47 @@ class MedCLIPModel(nn.Module):
         text_embeds = self.text_model(input_ids, attention_mask)
         text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
         return text_embeds
+    
+        
+    
+    def encode_image(
+        self,
+        images: Union[torch.Tensor, List[Image.Image], Image.Image],
+        normalize: bool = True
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        if isinstance(images, Image.Image):
+            images = [images]
+        
+        if isinstance(images, list):
+            # Process PIL images
+            image_tensors = torch.stack([self.preprocess(img) for img in images])
+            image_tensors = image_tensors.to(self.device)
+        else:
+            # Assume tensor input
+            image_tensors = images.to(self.device)        
+        
+        image_features = self.vision_model(pixel_values=image_tensors)
+        if normalize:
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features    
 
-    def encode_image(self, pixel_values=None):
-        # image encoder
-        vision_output = self.vision_model(pixel_values=pixel_values)
-        img_embeds = vision_output / vision_output.norm(dim=-1, keepdim=True)
-        return img_embeds
+    # old encode image
+    # def encode_image(self, pixel_values=None):
+    #     # image encoder
+    #     vision_output = self.vision_model(pixel_values=pixel_values)
+    #     img_embeds = vision_output / vision_output.norm(dim=-1, keepdim=True)
+    #     return img_embeds
 
     def forward(self,
         input_ids=None,

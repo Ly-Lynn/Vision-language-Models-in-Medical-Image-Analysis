@@ -60,7 +60,8 @@ class BioMedCLIPModel(nn.Module):
             print(f'Loaded model weights from: {checkpoint_path}')
         else:
             raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
-    
+
+    @torch.no_grad()
     def encode_text(
         self,
         texts: Union[str, List[str]],
@@ -120,8 +121,8 @@ class BioMedCLIPModel(nn.Module):
             image_tensors = images.to(self.device)
         
         # Encode images
-        with torch.no_grad():
-            image_features = self.model.encode_image(image_tensors)
+        # with torch.no_grad():
+        image_features = self.model.encode_image(image_tensors)
         
         if normalize:
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)

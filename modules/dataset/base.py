@@ -113,8 +113,6 @@ class BaseMedicalDataset(Dataset, ABC):
             # Load DICOM file
             dicom_data = pydicom.dcmread(img_path)
             img_array = dicom_data.pixel_array
-            print(img_array.max())
-            print(img_array.min())
             # Normalize pixel values to 0-255 range
             img_array = img_array.astype(np.float32)
             img_array = (img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255
