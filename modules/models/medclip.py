@@ -13,6 +13,7 @@ import numpy as np
 import torchvision
 
 from ..utils import constants
+from .base import VisionLanguageModel
 
 
 
@@ -131,7 +132,7 @@ class MedCLIPVisionModelViT(nn.Module):
             img_embeds = self.projection_head(img_embeds)
         return img_embeds
 
-class MedCLIPModel(nn.Module):
+class MedCLIPModel(VisionLanguageModel):
     def __init__(self,
         text_encoder_type='bert',
         vision_encoder_type='vit',
@@ -153,6 +154,9 @@ class MedCLIPModel(nn.Module):
         
         # Create text encoder
         self.text_model = self._create_text_encoder(text_encoder_type)
+        
+        # Create tokenizer for text processing
+        self.tokenizer = AutoTokenizer.from_pretrained(constants.BERT_TYPE)
 
         # learnable temperature for contrastive loss
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
@@ -231,12 +235,40 @@ class MedCLIPModel(nn.Module):
         print('load model weight from:', input_dir)
 
 
-    def encode_text(self, input_ids=None, attention_mask=None):
-        input_ids = input_ids.cuda()
+    def encode_text(self, texts=None, input_ids=None, attention_mask=None, normalize=True):
+        """
+        Encode text inputs to embeddings
+        
+        Args:
+            texts: Text string or list of text strings (optional)
+            input_ids: Tokenized text input (optional)
+            attention_mask: Attention mask for input (optional)
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Text embeddings tensor
+        """
+        # If texts are provided as strings, tokenize them
+        if texts is not None:
+            if isinstance(texts, str):
+                texts = [texts]
+            
+            # Tokenize texts
+            encoded = self.tokenizer(texts, padding=True, truncation=True, 
+                                   return_tensors='pt', max_length=77)
+            input_ids = encoded['input_ids']
+            attention_mask = encoded['attention_mask']
+        
+        # Move to device
+        input_ids = input_ids.to(self.device)
         if attention_mask is not None:
-            attention_mask = attention_mask.cuda()
+            attention_mask = attention_mask.to(self.device)
+            
         text_embeds = self.text_model(input_ids, attention_mask)
-        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+        
+        if normalize:
+            text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+        
         return text_embeds
     
         
@@ -244,7 +276,7 @@ class MedCLIPModel(nn.Module):
     def encode_image(
         self,
         images: Union[torch.Tensor, List[Image.Image], Image.Image],
-        normalize: bool = True
+        normalize=True
     ) -> torch.Tensor:
         """
         Encode image inputs to embeddings.
@@ -265,7 +297,10 @@ class MedCLIPModel(nn.Module):
             image_tensors = image_tensors.to(self.device)
         else:
             # Assume tensor input
-            image_tensors = images.to(self.device)        
+            image_tensors = images.to(self.device) 
+            
+    
+                   
         
         image_features = self.vision_model(pixel_values=image_tensors)
         if normalize:
@@ -284,16 +319,25 @@ class MedCLIPModel(nn.Module):
         input_ids=None,
         pixel_values=None,
         attention_mask=None,
+        texts=None,
         return_loss=None,
         **kwargs,
         ):
-        input_ids = input_ids.cuda()
+        # Move tensors to device
+        if input_ids is not None:
+            input_ids = input_ids.to(self.device)
         if attention_mask is not None:
-            attention_mask = attention_mask.cuda()
-        pixel_values = pixel_values.cuda()
+            attention_mask = attention_mask.to(self.device)
+        if pixel_values is not None:
+            pixel_values = pixel_values.to(self.device)
 
         img_embeds = self.encode_image(pixel_values)
-        text_embeds = self.encode_text(input_ids, attention_mask)
+        
+        # Use new encode_text method that can handle both tokenized and string inputs
+        if texts is not None:
+            text_embeds = self.encode_text(texts=texts)
+        else:
+            text_embeds = self.encode_text(input_ids=input_ids, attention_mask=attention_mask)
 
         logits_per_image = self.compute_logits(img_embeds, text_embeds)
         logits_per_text = logits_per_image.t()
