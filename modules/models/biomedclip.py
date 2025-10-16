@@ -7,8 +7,10 @@ from typing import Optional, Dict, List, Union
 import numpy as np
 from collections import defaultdict
 
+from .base import VisionLanguageModel
 
-class BioMedCLIPModel(nn.Module):
+
+class BioMedCLIPModel(VisionLanguageModel):
     """
     BioMedCLIP model implementation using open_clip.
     This model provides text and vision encoding capabilities for medical images.
@@ -29,9 +31,6 @@ class BioMedCLIPModel(nn.Module):
             checkpoint: Optional checkpoint path to load model weights from
         """
         super().__init__()
-        
-
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
         
         # Load model and preprocessing
@@ -52,12 +51,22 @@ class BioMedCLIPModel(nn.Module):
         # Set model to eval mode by default
         self.model.eval()
     
-    def load_checkpoint(self, checkpoint_path: str):
+    def load_checkpoint(self, checkpoint_path: str, strict: bool = False):
         """Load model weights from checkpoint."""
+        if not checkpoint_path:
+            print("No checkpoint path provided")
+            return
+            
         if os.path.exists(checkpoint_path):
             state_dict = torch.load(checkpoint_path, map_location=self.device)
-            self.model.load_state_dict(state_dict)
-            print(f'Loaded model weights from: {checkpoint_path}')
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict, strict=strict)
+            
+            if missing_keys:
+                print(f"Missing keys: {missing_keys}")
+            if unexpected_keys:
+                print(f"Unexpected keys: {unexpected_keys}")
+                
+            print(f'✅ Loaded model weights from: {checkpoint_path}')
         else:
             raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
 
@@ -138,7 +147,8 @@ class BioMedCLIPModel(nn.Module):
         input_ids: Optional[torch.Tensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         return_loss: bool = False,
-        return_dict: bool = True
+        return_dict: bool = True,
+        **kwargs
     ) -> Union[Dict, tuple]:
         """
         Forward pass for BioMedCLIP model.

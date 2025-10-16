@@ -19,37 +19,39 @@ DEFAULT_DATA_ROOT = 'local_data'
 
 # COVID Dataset
 COVID_TASKS = [
-    'Normal',
     'COVID',
+    'Normal',
 ]
 
 # MIMIC Dataset
 MIMIC_TASKS = [
-    'Normal',
     'Abnormal',
+    'Normal',
 ]
 
 # RSNA Dataset  
 RSNA_TASKS = [
-    'Normal',
     'Pneumonia',
+    'Normal',
 ]
 
 
 
 MIMIC_CLASS_PROMPTS = {
+    'Abnormal': {
+        'adjective': ['abnormal', 'pathological', 'irregular'],
+        'description': ['findings', 'opacity', 'infiltrate'],
+        'subtype': ['consolidation', 'effusion', 'pneumonia'],
+        'location': ['in lung', 'bilateral', 'unilateral'],
+    },
+    
     'Normal': {
         'adjective': ['clear', 'normal', 'healthy'],
         'description': ['chest', 'lungs', 'findings'],
         'subtype': ['x-ray', 'radiograph', 'image'],
         'location': ['', 'bilateral', 'throughout'],
     },
-    'Abnormal': {
-        'adjective': ['abnormal', 'pathological', 'irregular'],
-        'description': ['findings', 'opacity', 'infiltrate'],
-        'subtype': ['consolidation', 'effusion', 'pneumonia'],
-        'location': ['in lung', 'bilateral', 'unilateral'],
-    }
+
 }
 
 COVID_CLASS_PROMPTS = {
@@ -170,5 +172,51 @@ MODEL_TRANSFORMS = {
         ]
     ),
 }
+SIZE_TRANSFORM = {
+    'medclip': transforms.Compose(
+        [
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.Resize((IMG_SIZE, IMG_SIZE)),
+            transforms.ToTensor(),
+            # transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        ]
+    ),
+    'biomedclip': transforms.Compose(
+        [
+            transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BICUBIC, antialias=True),
+            transforms.CenterCrop(IMG_SIZE),
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.ToTensor(),
+            # transforms.Normalize(
+            #     mean=BIOMEDCLIP_MEAN,
+            #     std=BIOMEDCLIP_STD
+            # ),
+        ]
+    ),
+}
+TENSOR_NORMALIZE_TRANSFORM = {
+    'medclip': transforms.Compose(
+        [
+            # transforms.Lambda(lambda x: x.convert("RGB")),
+            # transforms.Resize((IMG_SIZE, IMG_SIZE)),
+            # transforms.ToTensor(),
+            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        ]
+    ),
+    'biomedclip': transforms.Compose(
+        [
+            # transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BICUBIC, antialias=True),
+            # transforms.CenterCrop(IMG_SIZE),
+            # transforms.Lambda(lambda x: x.convert("RGB")),
+            # transforms.ToTensor(),
+            transforms.Normalize(
+                mean=BIOMEDCLIP_MEAN,
+                std=BIOMEDCLIP_STD
+            ),
+        ]
+    ),
+}
 
+
+# for attack
 

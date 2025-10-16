@@ -3,7 +3,7 @@ from modules.utils.constants import MODEL_TRANSFORMS
 from tqdm import tqdm
 import numpy as np
 
-dataset_name = "rsna"
+dataset_name = "covid"
 model_type = 'medclip'
 transform = MODEL_TRANSFORMS[model_type]
 
@@ -18,12 +18,25 @@ dataset = DatasetFactory.create_dataset(
 print(f"Dataset: {dataset_name}")
 print(f"Total samples: {len(dataset)}")
 
+labels = [0, 0]
 widths, heights = [], []
 for i in tqdm(range(len(dataset)), desc="Scanning dataset"):
     img, label = dataset[i]
+    img.save(f"{str(label)}.png")
+    break
+
+    for i, (key, item) in enumerate(label.items()):
+        if item == 1:
+            gt_id = i
+    labels[gt_id] += 1
+    
+    
     w, h = img.size
     widths.append(w)
     heights.append(h)
+
+
+print(labels)
 
 widths = np.array(widths)
 heights = np.array(heights)

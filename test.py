@@ -17,7 +17,7 @@ n_prompt = 5
 dataset_name = "rsna"
 model_type = 'medclip'
 transform = MODEL_TRANSFORMS[model_type]
-batch_size = 128
+batch_size = 256
 
 DATA_ROOT = '/data2/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
 dataset = DatasetFactory.create_dataset(
@@ -66,7 +66,7 @@ with torch.no_grad():
         img_feats = model.encode_image(batch_imgs)               # (B, D)
         sims = img_feats @ class_features.T                     # (B, NUM_CLASS)
         preds = sims.argmax(dim=-1).cpu()                       # (B,)
-
+        # print(preds)
         all_preds.append(preds)
         all_labels.append(batch_lbl_indices)
         # break
@@ -78,14 +78,21 @@ all_labels = torch.cat(all_labels, dim=0)   # (N,)
 acc = (all_preds == all_labels).float().mean().item()
 
 
-results = [{"index": i, "class_pred_id": int(cls_id)} for i, cls_id in enumerate(all_preds.tolist())]
+results = [
+    {
+        "index": i,
+        'class_pred_id': int(cls_id),
+        "gt_pred_id": int(gt_id)
+    } for i, (cls_id, gt_id) in enumerate(zip(all_preds.tolist(), all_labels.tolist()))
+]
+
 fname_results = f"evaluate_result/model_name={model_type}_dataset={dataset_name}_n_prompt={n_prompt}.json"
 with open(fname_results, "w", encoding="utf-8") as f:
     json.dump(results, f, ensure_ascii=False, indent=2)
 print(f"Saved per-sample predictions to: {fname_results}")
 
 # 2) Ghi lại dict class_prompts
-fname_prompts = f"evaluate_result/model_name={model_type}_n_prompt={n_prompt}.json"
+fname_prompts = f"evaluate_result/model_name={model_type}_dataset={dataset_name}_prompt.json"
 with open(fname_prompts, "w", encoding="utf-8") as f:
     json.dump(class_prompts, f, ensure_ascii=False, indent=2)
 print(f"Saved class_prompts to: {fname_prompts}")
