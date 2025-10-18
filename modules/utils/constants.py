@@ -186,7 +186,7 @@ SIZE_TRANSFORM = {
             transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BICUBIC, antialias=True),
             transforms.CenterCrop(IMG_SIZE),
             transforms.Lambda(lambda x: x.convert("RGB")),
-            transforms.ToTensor(),
+            # transforms.ToTensor(),
             # transforms.Normalize(
             #     mean=BIOMEDCLIP_MEAN,
             #     std=BIOMEDCLIP_STD
@@ -199,7 +199,7 @@ TENSOR_NORMALIZE_TRANSFORM = {
         [
             # transforms.Lambda(lambda x: x.convert("RGB")),
             # transforms.Resize((IMG_SIZE, IMG_SIZE)),
-            transforms.ToTensor(),
+            # transforms.ToTensor(),
             transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
         ]
     ),
@@ -219,4 +219,5 @@ TENSOR_NORMALIZE_TRANSFORM = {
 
 
 # for attack
+DATA_ROOT = '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
 

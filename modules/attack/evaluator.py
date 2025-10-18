@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import List
 from .util import pil_to_tensor, tensor_to_pillow
+from time import time
 
 class EvaluatePerturbation:
     def __init__(
@@ -9,13 +10,15 @@ class EvaluatePerturbation:
         model: nn.Module,
         class_prompts: List[str], # (NUM_CLASSES x D)
         imgs: torch.Tensor=None,              # (B, 3, H, W)
-        clean_pred_id: int=None               # index of clean prediction
+        clean_pred_id: int=None,               # index of clean prediction
+        mode: str="post_transform" # mode for transform
     ):
         self.model = model
             
         self.class_text_feats = self.extract_centroid_vector(class_prompts)
         self.imgs = imgs
         self.clean_pred_id = clean_pred_id
+        self.mode = mode
         
     def set_data(self, image, clean_pred_id):
         self.img = image
@@ -39,8 +42,13 @@ class EvaluatePerturbation:
     def evaluate_blackbox(self, perturbations: torch.Tensor):
         adv_imgs = self.img_tensor + perturbations
         adv_imgs = torch.clamp(adv_imgs, 0, 1)
-        adv_imgs = tensor_to_pillow(adv_imgs) # pillow image
-        adv_feats = self.model.encode_image(adv_imgs)  # (B, D)
+        
+        if self.mode == "post_transform":
+            adv_feats = self.model.encode_posttransform_image(adv_imgs)  # (B, D)
+        
+        elif self.mode == "pre_transform":
+            adv_feats = self.model.encode_pretransform_image(adv_imgs)  # (B, D)
+        
         sims = adv_feats @ self.class_text_feats.T     # (B, NUM_CLASSES)
         # Correct class similarity
         correct_sim = sims[:, self.clean_pred_id]
@@ -52,3 +60,10 @@ class EvaluatePerturbation:
         margin = correct_sim - other_max_sim
         return margin
     
+  
+    
+    def take_adv_img(self, perturbation):
+        adv_imgs = self.img_tensor + perturbation
+        adv_imgs = torch.clamp(adv_imgs, 0, 1)
+        pil_adv_imgs = tensor_to_pillow(adv_imgs) # pillow image
+        return adv_imgs, pil_adv_imgs

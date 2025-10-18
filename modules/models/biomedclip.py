@@ -133,8 +133,8 @@ class BioMedCLIPModel(VisionLanguageModel):
             
         
         # Encode images
-        # with torch.no_grad():
-        image_features = self.model.encode_image(image_tensors)
+        with torch.no_grad():
+            image_features = self.model.encode_image(image_tensors)
         
         if normalize:
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
@@ -161,7 +161,7 @@ class BioMedCLIPModel(VisionLanguageModel):
         
         if isinstance(images, list):
             # Process PIL images
-            image_tensors = self.normalize_transform(images)
+            image_tensors = torch.stack([self.normalize_transform(img) for img in images])
             image_tensors = image_tensors.to(self.device)
         else:
             # Assume tensor input
@@ -170,8 +170,8 @@ class BioMedCLIPModel(VisionLanguageModel):
             
         
         # Encode images
-        # with torch.no_grad():
-        image_features = self.model.encode_image(image_tensors)
+        with torch.no_grad():
+            image_features = self.model.encode_image(image_tensors)
         
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)        
         return image_features

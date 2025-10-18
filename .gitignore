@@ -8,3 +8,4 @@ pretrained/*
 *.ipynb
 example.py
 dataset/__pycache__
+attack_dir/

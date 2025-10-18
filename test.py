@@ -19,7 +19,7 @@ model_type = 'medclip'
 transform = MODEL_TRANSFORMS[model_type]
 batch_size = 256
 
-DATA_ROOT = '/data2/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
+DATA_ROOT = '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
 dataset = DatasetFactory.create_dataset(
     dataset_name=dataset_name,
     model_type=model_type,

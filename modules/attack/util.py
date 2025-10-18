@@ -33,14 +33,10 @@ def _project_linf(delta: torch.Tensor, eps: float) -> torch.Tensor:
     return delta.clamp(min=-eps, max=eps)
 
 def _project_l2(delta: torch.Tensor, eps: float) -> torch.Tensor:
-    if eps is None:
-        return delta
-    # delta: [B, C, H, W]
-    B = delta.shape[0]
-    flat = delta.view(B, -1)
-    norms = flat.norm(p=2, dim=1).clamp_min(1e-12)   # [B]
-    scale = torch.minimum(torch.ones_like(norms), eps / norms)  # [B]
-    return (delta * scale.view(B, 1, 1, 1))
+    norm = delta.view(delta.size(0), -1).norm(p=2, dim=1, keepdim=True)
+    norm = torch.clamp(norm, min=1e-12)
+    factor = torch.min(torch.ones_like(norm), eps / norm)
+    return delta * factor.view(-1, 1, 1, 1)
 
 def _project_l0(delta: torch.Tensor, eps: float) -> torch.Tensor:
     if eps is None:

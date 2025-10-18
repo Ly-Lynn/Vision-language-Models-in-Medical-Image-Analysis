@@ -11,6 +11,7 @@ from torch import nn
 from transformers import AutoModel, AutoTokenizer
 import numpy as np
 import torchvision
+import torch.nn.functional as F
 
 from ..utils import constants
 from .base import VisionLanguageModel
@@ -158,7 +159,6 @@ class MedCLIPModel(VisionLanguageModel):
         # proccessor (khoatn fix)
         self.preprocess = constants.MODEL_TRANSFORMS['medclip']
         self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['medclip']
-        
     
     def _create_text_encoder(self, encoder_type: str):
         """Create text encoder based on type"""
@@ -298,9 +298,9 @@ class MedCLIPModel(VisionLanguageModel):
         
         return image_features    
 
-    def encode_posttransform_image(
+    def encode_posttransform_image( # truyền voad image tensor dwuodjc scale
         self,
-        images: Union[torch.Tensor, List[Image.Image], Image.Image]
+        images: torch.Tensor
     ) -> torch.Tensor:
         """
         Encode image inputs to embeddings.
@@ -313,16 +313,30 @@ class MedCLIPModel(VisionLanguageModel):
             Image embeddings tensor
         """
         # Handle different input types
-        if isinstance(images, Image.Image):
-            images = [images]
+        image_tensors = self.normalize_transform(images)
         
-        if isinstance(images, list):
-            # Process PIL images
-            image_tensors = self.normalize_transform(images)
-            image_tensors = image_tensors.to(self.device)
-        else:
-            # Assume tensor input
-            image_tensors = images.to(self.device)
+        image_features = self.vision_model(pixel_values=image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features    
+    
+    def encode_pretransform_image( # truyền voad image tensor dwuodjc scale
+        self,
+        images: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        image_tensors = F.interpolate(images, size=(224, 224), mode="bilinear", align_corners=False)
+        image_tensors = self.normalize_transform(images)
         
         image_features = self.vision_model(pixel_values=image_tensors)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
