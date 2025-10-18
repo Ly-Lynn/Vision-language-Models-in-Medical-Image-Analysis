@@ -16,7 +16,6 @@ from ..utils import constants
 from .base import VisionLanguageModel
 
 
-
 class MedCLIPTextModel(nn.Module):
     def __init__(self,
         bert_type=constants.BERT_TYPE,
@@ -32,18 +31,8 @@ class MedCLIPTextModel(nn.Module):
 
     def forward(self, input_ids, attention_mask):
         output = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        # take the average of last four layers
-        # last_hidden_states = torch.stack(output['hidden_states'][-self.last_n_layer:]) # n_layer, batch, seqlen, emb_dim
-        # embed = last_hidden_states.permute(1,0,2,3)
-        # embed = embed.mean(1).mean(1) # pooling
-
-        # get 1+2+last layer
         last_hidden_states = torch.stack([output['hidden_states'][1], output['hidden_states'][2], output['hidden_states'][-1]]) # n_layer, batch, seqlen, emb_dim
         embed = last_hidden_states.permute(1,0,2,3).mean(2).mean(1) # pooling
-
-        # let's take only the last hidden layer
-        # embed = output['pooler_output']
-
         embed = self.projection_head(embed)
         return embed
 
@@ -168,7 +157,8 @@ class MedCLIPModel(VisionLanguageModel):
     
         # proccessor (khoatn fix)
         self.preprocess = constants.MODEL_TRANSFORMS['medclip']
-
+        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['medclip']
+        
     
     def _create_text_encoder(self, encoder_type: str):
         """Create text encoder based on type"""
@@ -308,12 +298,36 @@ class MedCLIPModel(VisionLanguageModel):
         
         return image_features    
 
-    # old encode image
-    # def encode_image(self, pixel_values=None):
-    #     # image encoder
-    #     vision_output = self.vision_model(pixel_values=pixel_values)
-    #     img_embeds = vision_output / vision_output.norm(dim=-1, keepdim=True)
-    #     return img_embeds
+    def encode_posttransform_image(
+        self,
+        images: Union[torch.Tensor, List[Image.Image], Image.Image]
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        if isinstance(images, Image.Image):
+            images = [images]
+        
+        if isinstance(images, list):
+            # Process PIL images
+            image_tensors = self.normalize_transform(images)
+            image_tensors = image_tensors.to(self.device)
+        else:
+            # Assume tensor input
+            image_tensors = images.to(self.device)
+        
+        image_features = self.vision_model(pixel_values=image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features    
 
     def forward(self,
         input_ids=None,

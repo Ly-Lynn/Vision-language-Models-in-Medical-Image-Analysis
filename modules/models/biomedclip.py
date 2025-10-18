@@ -6,6 +6,7 @@ import open_clip
 from typing import Optional, Dict, List, Union
 import numpy as np
 from collections import defaultdict
+from ..utils import constants
 
 from .base import VisionLanguageModel
 
@@ -37,6 +38,7 @@ class BioMedCLIPModel(VisionLanguageModel):
         self.model, self.preprocess = open_clip.create_model_from_pretrained(model_name)
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.context_length = context_length
+        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['biomedclip']
         
         # print("preproccess: ", self.preprocess)
         # raise
@@ -137,6 +139,41 @@ class BioMedCLIPModel(VisionLanguageModel):
         if normalize:
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         
+        return image_features
+    
+    def encode_posttransform_image(
+        self,
+        images: Union[torch.Tensor, List[Image.Image], Image.Image]
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        if isinstance(images, Image.Image):
+            images = [images]
+        
+        if isinstance(images, list):
+            # Process PIL images
+            image_tensors = self.normalize_transform(images)
+            image_tensors = image_tensors.to(self.device)
+        else:
+            # Assume tensor input
+            image_tensors = images.to(self.device)
+            
+            
+        
+        # Encode images
+        # with torch.no_grad():
+        image_features = self.model.encode_image(image_tensors)
+        
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)        
         return image_features
     
     def forward(

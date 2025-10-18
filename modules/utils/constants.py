@@ -177,7 +177,7 @@ SIZE_TRANSFORM = {
         [
             transforms.Lambda(lambda x: x.convert("RGB")),
             transforms.Resize((IMG_SIZE, IMG_SIZE)),
-            transforms.ToTensor(),
+            # transforms.ToTensor(),
             # transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
         ]
     ),
@@ -199,7 +199,7 @@ TENSOR_NORMALIZE_TRANSFORM = {
         [
             # transforms.Lambda(lambda x: x.convert("RGB")),
             # transforms.Resize((IMG_SIZE, IMG_SIZE)),
-            # transforms.ToTensor(),
+            transforms.ToTensor(),
             transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
         ]
     ),
