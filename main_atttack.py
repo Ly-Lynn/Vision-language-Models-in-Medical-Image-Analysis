@@ -5,7 +5,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import json
-from modules.attack.attack import ES_1_1, ES_1_Lambda, ES_Mu_Lambda, RandomSearchAttack, ES_1_Lambda_visual
+from modules.attack.attack import ES_1_Lambda, ES_1_Lambda_visual
 from modules.attack.evaluator import EvaluatePerturbation, DCTDecoder
 from modules.attack.util import seed_everything 
 import os
@@ -79,29 +79,12 @@ def main(args):
     
     
     # ----------------- Attacker -------------------
-    if args.attacker_name == "random_search":
-        attacker = RandomSearchAttack(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            iterations=200,
-            pop_size=50
-        )
-    
-    elif args.attacker_name == "ES_1_1": # number of evaluation = iterations
-        attacker = ES_1_1(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            iterations=10000,
-        )
-        
-    elif args.attacker_name == "ES_1_Lambda": # number of evalation = ierations * lambda
+    if args.attacker_name == "ES_1_Lambda": # number of evalation = ierations * lambda
         attacker = ES_1_Lambda(
             evaluator=evaluator,
             eps=args.epsilon,
             norm=args.norm,
-            iterations=200,
+            max_evaluation=args.max_evaluation,
             lam=50
         )
         
@@ -113,15 +96,7 @@ def main(args):
             max_evaluation=args.max_evaluation,
             lam=50
         )
-    elif args.attacker_name == "ES_Mu_Lambda": # number of evalation = ierations * lambda
-        attacker = ES_Mu_Lambda(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            iterations=100,
-            lam=68,
-            mu=32
-        )
+
                 
     # --------------------------- Main LOOP ------------------ 
     for index in tqdm(indxs):

@@ -22,8 +22,117 @@ class BaseAttack:
         if margin <= 0:
             return True
         return False
+
+
+class ES_1_1(BaseAttack):
+    def __init__(self, evaluator, eps=8/255, norm="linf",
+                 iterations=200, c_inc=1.5, c_dec=0.9, device='cuda'):
+        super().__init__(evaluator, eps, norm, device)
+        assert c_inc > 1.0 and 0.0 < c_dec < 1.0
+        self.iterations = int(iterations)
+        self.c_inc = float(c_inc)
+        self.c_dec = float(c_dec)
+        self.sigma = self.eps
+
+    def run(self) -> Dict[str, Any]:
+        _, C, H, W = self.evaluator.img_tensor.shape
+        m = torch.randn((1, C, H, W), device=self.device) * self.sigma
+        m = project_delta(m, self.eps, self.norm)
+
+        m_margin = float(self.evaluator.evaluate_blackbox(m).item())
+        best_delta = m.clone()
+        best_margin = float(m_margin)
+        history = [best_margin]
+
+        pbar = tqdm(range(self.iterations), desc=f"Best Loss: {best_margin:.6f}")
+        for _ in pbar:
+            noise = torch.randn_like(m)
+            x = m + self.sigma * noise
+            x = project_delta(x, self.eps, self.norm)
+
+            x_margin = float(self.evaluator.evaluate_blackbox(x).item())
+            if x_margin < m_margin:
+                m = x.clone()
+                m_margin = x_margin
+                self.sigma *= self.c_inc
+                self.sigma = min(self.eps, self.sigma)
+
+                if m_margin < best_margin:
+                    best_margin = float(m_margin)
+                    best_delta = m.clone()
+            else:
+                self.sigma *= self.c_dec
+
+            history.append(best_margin)
+            pbar.set_description(f"Best Loss: {best_margin:.6f}")
+            if self.is_success(best_margin):
+                break
+
+        return {"best_delta": best_delta, "best_margin": best_margin, "history": history}
+
+
     
 
+class ES_1_Lambda(BaseAttack):
+    def __init__(self, evaluator, eps=8/255, norm="linf",
+                 max_evaluation=10000, lam=64, c_inc=1.5, c_dec=0.9, device='cuda'):
+        super().__init__(evaluator, eps, norm, device)
+        # assert lam >= 2 and c_inc > 1.0 and 0.0 < c_dec < 1.0
+        self.lam = int(lam)
+        self.c_inc = float(c_inc)
+        self.c_dec = float(c_dec)
+        self.sigma = 1.1  # σ tuyệt đối
+        self.max_iteration = max_evaluation
+    def run(self) -> Dict[str, Any]:
+        sigma = self.sigma
+        if self.evaluator.decoder:
+            _, C, H, W = self.evaluator.lq_shape
+        else:
+            _, C, H, W = self.evaluator.img_tensor.shape
+            
+        if self.evaluator.decoder:
+            m = torch.randn((1, C, H, W), device=self.device) * self.eps
+            m = project_delta(m, self.eps, self.norm)
+        else:
+            m = torch.randn((1, C, H, W), device=self.device)
+
+        f_m, l2_m = self.evaluator.evaluate_blackbox(m)
+        history = [[float(f_m.item()), float(l2_m.item())]]
+
+        pbar = tqdm(range(self.iterations), desc=f"Best Loss: {f_m:.6f}")
+        num_evaluation = 1
+        while num_evaluation < self.max_evaluation:
+            noise = torch.randn((self.lam, C, H, W), device=self.device)
+            X = m + self.sigma * noise
+            if not self.evaluator.decoder:
+                X = project_delta(X, self.eps, self.norm)
+
+            margins, l2s = self.evaluate_population(X)
+            idx_best = torch.argmin(margins).item()
+            x_best = X[idx_best].clone()
+            f_best = float(margins[idx_best].item())
+            l2_best = float(l2s[idx_best].item())
+
+            if f_best < f_m:
+                m = x_best.clone()
+                l2_m = l2_best
+                f_m = f_best
+                sigma *= self.c_inc
+                sigma = min(self.eps, self.sigma)
+            else:
+                sigma *= self.c_dec            
+                sigma = max(1e-6, sigma)     
+
+            history.append([float(f_m.item()), float(l2_m.item())])
+            if self.is_success(f_m):
+                break
+            
+        if self.evaluator.decoder:
+            m = self.evaluator.decoder(m, self.evaluator.img_W, self.evaluator.img_H)
+            m = project_delta(m, self.eps, self.norm)
+
+            
+        return {"best_delta": m, "best_margin": f_m, "history": history}
 
 class ES_1_Lambda_visual(BaseAttack):
     def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000,
@@ -123,7 +232,6 @@ class ES_1_Lambda_visual(BaseAttack):
 
             
         return {"best_delta": m, "best_margin": f_m, "history": history}
-
 
 
 
