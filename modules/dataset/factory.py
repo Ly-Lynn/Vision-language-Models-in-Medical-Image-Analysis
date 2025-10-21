@@ -8,7 +8,7 @@ from .mimic import (
     MIMICContrastiveCollator
 )
 from .covid import COVIDDataset, COVIDZeroShotCollator, COVIDSupervisedCollator
-from .rsna import RSNADataset, RSNAZeroShotCollator, RSNASupervisedCollator
+from .rsna import RSNADataset, RSNAZeroShotCollator
 from ..utils.constants import DATASET_CONFIGS, SUPPORTED_MODELS
 from ..utils.logging_config import get_logger
 
@@ -40,7 +40,7 @@ class DatasetFactory:
         },
         'rsna': {
             'zeroshot': RSNAZeroShotCollator,
-            'supervised': RSNASupervisedCollator
+            # 'supervised': RSNASupervisedCollator
         }
     }
     

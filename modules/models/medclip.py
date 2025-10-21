@@ -5,6 +5,7 @@ from collections import defaultdict
 import requests
 from typing import Optional, Dict, List, Union
 from PIL import Image
+from torchvision.utils import save_image
 
 import torch
 from torch import nn
@@ -15,7 +16,8 @@ import torch.nn.functional as F
 
 from ..utils import constants
 from .base import VisionLanguageModel
-
+from torchvision import transforms
+from torchvision.transforms import InterpolationMode
 
 class MedCLIPTextModel(nn.Module):
     def __init__(self,
@@ -159,6 +161,11 @@ class MedCLIPModel(VisionLanguageModel):
         # proccessor (khoatn fix)
         self.preprocess = constants.MODEL_TRANSFORMS['medclip']
         self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['medclip']
+        self.pil_to_tensor_norm = transforms.Compose([
+            transforms.Resize((224, 224), interpolation=InterpolationMode.BILINEAR),
+            transforms.ToTensor(),                    # -> [0,1] float32, shape (C,H,W)
+            self.normalize_transform,                 # Normalize(mean,std)
+        ])
     
     def _create_text_encoder(self, encoder_type: str):
         """Create text encoder based on type"""
@@ -335,8 +342,14 @@ class MedCLIPModel(VisionLanguageModel):
             Image embeddings tensor
         """
         # Handle different input types
-        image_tensors = F.interpolate(images, size=(224, 224), mode="bilinear", align_corners=False)
-        image_tensors = self.normalize_transform(images)
+        images_ = torch.round(images * 255.0).clamp(0, 255)
+        # Resize to model input size
+        image_tensors = F.interpolate(images_, size=(224, 224), mode="bilinear", align_corners=False)
+        image_tensors = image_tensors / 255.0
+        image_tensors = self.normalize_transform(image_tensors)
+        
+
+
         
         image_features = self.vision_model(pixel_values=image_tensors)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)

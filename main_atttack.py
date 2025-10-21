@@ -5,11 +5,13 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import json
-from modules.attack.attack import ES_1_1, ES_1_Lambda, ES_Mu_Lambda, RandomSearchAttack
-from modules.attack.evaluator import EvaluatePerturbation
+from modules.attack.attack import ES_1_1, ES_1_Lambda, ES_Mu_Lambda, RandomSearchAttack, ES_1_Lambda_visual
+from modules.attack.evaluator import EvaluatePerturbation, DCTDecoder
 from modules.attack.util import seed_everything 
 import os
+from torchvision import transforms
 
+_toTensor = transforms.ToTensor()
 def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
         if is_gt == 1:
@@ -32,6 +34,11 @@ def main(args):
     
     with open(args.index_path, "r") as f:
         indxs = [int(line.strip()) for line in f.readlines()]
+    # take 100 lớp đầu, take 100 lớp sau:
+    indxs_0 = indxs[:100]
+    indxs_1 = indxs[500:600]
+    indxs = indxs_0 + indxs_1
+    print("Len attack: ", len(indxs))
     
     # ---------------- Text prompt feature -----------------
     with open(args.prompt_path, "r") as f:
@@ -45,16 +52,29 @@ def main(args):
         pretrained=True
     )
     
+    # -------------- Decoder ------------
+    decoder = None
+    if args.f_ratio:
+        decoder = DCTDecoder(
+            f_ratio=args.f_ratio
+        )
+    
+    
+    
+    
     
     # ----------------------- Evaluator ---------------
     evaluator = EvaluatePerturbation(
         model=model,
         class_prompts=class_prompts,
-        mode=args.mode
+        mode=args.mode,
+        decoder=decoder,
+        eps=args.epsilon,
+        norm=args.norm
     )
     
     # path dir save
-    save_dir = os.path.join(args.out_dir, args.model_name, args.dataset_name, f"attack_name{args.attacker_name}_epsilon={args.epsilon}_mode={args.mode}_seed={args.seed}")
+    save_dir = os.path.join(args.out_dir, args.model_name, args.dataset_name, f"dct_f={args.f_ratio}_attack_name{args.attacker_name}_epsilon={args.epsilon}_norm={args.norm}_mode={args.mode}_seed={args.seed}")
     os.makedirs(save_dir, exist_ok=True)
     
     
@@ -64,8 +84,8 @@ def main(args):
             evaluator=evaluator,
             eps=args.epsilon,
             norm=args.norm,
-            iterations=100,
-            pop_size=20
+            iterations=200,
+            pop_size=50
         )
     
     elif args.attacker_name == "ES_1_1": # number of evaluation = iterations
@@ -73,7 +93,7 @@ def main(args):
             evaluator=evaluator,
             eps=args.epsilon,
             norm=args.norm,
-            iterations=2000,
+            iterations=10000,
         )
         
     elif args.attacker_name == "ES_1_Lambda": # number of evalation = ierations * lambda
@@ -81,8 +101,17 @@ def main(args):
             evaluator=evaluator,
             eps=args.epsilon,
             norm=args.norm,
-            iterations=100,
-            lam=20
+            iterations=200,
+            lam=50
+        )
+        
+    elif args.attacker_name == "ES_1_Lambda_visual": # number of evalation = ierations * lambda
+        attacker = ES_1_Lambda_visual(
+            evaluator=evaluator,
+            eps=args.epsilon,
+            norm=args.norm,
+            max_evaluation=args.max_evaluation,
+            lam=50
         )
     elif args.attacker_name == "ES_Mu_Lambda": # number of evalation = ierations * lambda
         attacker = ES_Mu_Lambda(
@@ -90,8 +119,8 @@ def main(args):
             eps=args.epsilon,
             norm=args.norm,
             iterations=100,
-            lam=15,
-            mu=5
+            lam=68,
+            mu=32
         )
                 
     # --------------------------- Main LOOP ------------------ 
@@ -101,18 +130,18 @@ def main(args):
 
         if args.mode == "post_transform": # knowing transform
             img_attack = size_transform(img).convert("RGB")
+            img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
+            img_feats = model.encode_posttransform_image(img_attack_tensor)
         elif args.mode == "pre_transform": # w/o knoiwng transform
             img_attack = img.convert("RGB")
-        # print("Size spacce attack: ", img_attack.size)
-        
-        
-        
+            img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
+            img_feats = model.encode_pretransform_image(img_attack_tensor)
+      
+      
         # re-evaluation
-        img_feats = model.encode_image([img])
         sims = img_feats @ evaluator.class_text_feats.T                     # (B, NUM_CLASS)
         clean_preds = sims.argmax(dim=-1).item()                    # (B,)
-        # assert preds == label_id
-        # print("Clean preds: ", preds)
+
 
         # main attack
         attacker.evaluator.set_data(
@@ -128,6 +157,7 @@ def main(args):
         # recheck
         if args.mode == "post_transform": # knowing transform
             img_feats = model.encode_posttransform_image(adv_imgs) # (B, NUM_CLASS)
+            
         elif args.mode == "pre_transform":
             img_feats = model.encode_pretransform_image(adv_imgs)  # (B, D)
         
@@ -178,13 +208,14 @@ def get_args():
     
     # Attack configuration
     parser.add_argument("--attacker_name", type=str, required=True,
-                        choices=["random_search", "ES_1_1", "ES_1_Lambda", "ES_Mu_Lambda", "PGD"],
+                        choices=["random_search", "ES_1_1", "ES_1_Lambda", "ES_1_Lambda_visual", "ES_Mu_Lambda", "PGD"],
                         help="Name of attacker algorithm")
     parser.add_argument("--epsilon", type=float, default=8/255,
                         help="Maximum perturbation magnitude (default: 8/255)")
     parser.add_argument("--norm", type=str, default="linf",
                         choices=["linf", "l2"],
                         help="Norm constraint type")
+    parser.add_argument("--max_evaluation", type=int, default=10000)
     parser.add_argument("--mode", type=str, default="pre_transform",
                         choices=["pre_transform", "post_transform"],
                         help="Attack mode: before or after model transform")
@@ -196,8 +227,10 @@ def get_args():
                         help="Device to use (cuda or cpu)")
     
     # outdir
-    parser.add_argument("--out_dir", type=str, default="attack_dir")
+    parser.add_argument("--out_dir", type=str, default="attack_new")
 
+    # using decoder
+    parser.add_argument("--f_ratio", type=float, default=None)
     args = parser.parse_args()
     return args
 

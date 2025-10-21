@@ -7,7 +7,7 @@ import os
 import random
 from typing import List, Dict, Tuple, Any, Optional
 from collections import defaultdict
-
+from torchvision import transforms
 import numpy as np
 import pandas as pd
 import torch
@@ -37,6 +37,7 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
         data_root: str = '/data/elo/data/mimic',
         split: str = 'train',
         model_type: str = 'medclip',
+        transform: Optional[transforms.Compose] = None,
         **kwargs
     ):
         """
@@ -50,6 +51,7 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
             data_root=data_root,
             split=split,
             model_type=model_type,
+            transform=transform,
             **kwargs
         )
         

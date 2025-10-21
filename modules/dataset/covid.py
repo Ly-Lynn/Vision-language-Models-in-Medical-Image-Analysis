@@ -6,7 +6,7 @@ import os
 import random
 from typing import List, Dict, Tuple, Any, Optional
 from collections import defaultdict
-
+from torchvision import transforms
 import numpy as np
 import pandas as pd
 import torch
@@ -30,6 +30,7 @@ class COVIDDataset(BaseClassificationDataset):
         split: str = 'test',
         model_type: str = 'medclip',
         datalist: Optional[List[str]] = None,
+        transform: Optional[transforms.Compose] = None,
         **kwargs
     ):
         """
@@ -52,6 +53,7 @@ class COVIDDataset(BaseClassificationDataset):
             data_root=data_root,
             split=split,
             model_type=model_type,
+            transform=transform,
             **kwargs
         )
         

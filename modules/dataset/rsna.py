@@ -8,6 +8,7 @@ import random
 import zipfile
 from typing import List, Dict, Tuple, Any, Optional
 from collections import defaultdict
+from torchvision import transforms
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,7 @@ class RSNADataset(BaseClassificationDataset):
         split: str = 'test',
         model_type: str = 'medclip',
         datalist: Optional[List[str]] = None,
+        transform: Optional[transforms.Compose] = None,
         **kwargs
     ):
         """
@@ -48,23 +50,11 @@ class RSNADataset(BaseClassificationDataset):
             model_type: 'medclip' or 'biomedclip'
             datalist: List of data files to load
         """
-        if datalist is None:
-            config = DATASET_CONFIGS['rsna']
-            if split in config['data_files']:
-                datalist = [config['data_files'][split].replace('-meta.csv', '')]
-            else:
-                datalist = [f'rsna-{split}']
-        
+
         self.cls_prompts = RSNA_CLASS_PROMPTS
         self.template = DEFAULT_TEMPLATES[model_type]
-        self.datalist = datalist
         self.data_root = os.path.join(data_root, "rsna")
-        super().__init__(
-            data_root=self.data_root,
-            split=split,
-            model_type=model_type,
-            **kwargs
-        )
+        super().__init__(data_root=self.data_root, split=split, model_type=model_type, transform=transform, **kwargs)
         
 
     
@@ -97,7 +87,7 @@ class RSNADataset(BaseClassificationDataset):
             try:
                 gdown.download(id=url_id, output=rsna_output, quiet=False)
                 with zipfile.ZipFile(rsna_output, 'r') as zip_ref:
-                    zip_ref.extractall(rsna_data_path)
+                    zip_ref.extractall(self.data_root)
                 os.remove(rsna_output) 
                 return True
             except Exception as e:
@@ -238,38 +228,6 @@ class RSNAZeroShotCollator(BaseCollator):
             'labels': inputs['labels'],
             'class_names': self.class_names
         }
-
-
-class RSNASupervisedCollator(BaseCollator):
-    """
-    Collator cho RSNA supervised classification
-    """
-    
-    def __init__(self, model_type: str = 'medclip', **kwargs):
-        super().__init__(model_type=model_type, mode='binary', **kwargs)
-        self.class_names = RSNA_TASKS
-        
-    def __call__(self, batch: List[Tuple]) -> Dict[str, Any]:
-        """Process batch cho supervised classification"""
-        inputs = defaultdict(list)
-        
-        for data in batch:
-            img_tensor, labels = data
-            inputs['pixel_values'].append(img_tensor)
-            inputs['labels'].append(labels)
-            
-        # Process images
-        inputs['pixel_values'] = self._process_images(inputs['pixel_values'])
-        
-        # Process labels cho binary classification
-        inputs['labels'] = self._process_labels(inputs['labels'], self.class_names)
-        
-        return {
-            'pixel_values': inputs['pixel_values'],
-            'labels': inputs['labels']
-        }
-
-
 # Utility functions cho RSNA dataset
 def create_rsna_dataloader(
     data_root: str = 'local_data',
@@ -317,8 +275,8 @@ def create_rsna_dataloader(
             cls_prompts=cls_prompts,
             template=template
         )
-    elif task_type == 'supervised':
-        collator = RSNASupervisedCollator(model_type=model_type)
+    # elif task_type == 'supervised':
+    #     collator = RSNASupervisedCollator(model_type=model_type)
     else:
         raise ValueError(f"Unknown task_type: {task_type}")
         

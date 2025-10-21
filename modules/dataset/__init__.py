@@ -23,7 +23,7 @@ from .covid import (
 from .rsna import (
     RSNADataset,
     RSNAZeroShotCollator,
-    RSNASupervisedCollator,
+    # RSNASupervisedCollator,
     create_rsna_dataloader
 )
 

@@ -35,7 +35,12 @@ RSNA_TASKS = [
     'Normal',
 ]
 
-
+ENTREP_TASKS = [
+    'vocal-throat',
+    'nose',
+    'ear',
+    'throat'
+]
 
 MIMIC_CLASS_PROMPTS = {
     'Abnormal': {
@@ -134,16 +139,26 @@ DATASET_CONFIGS = {
             'test': 'rsna-balanced-test-meta.csv'
         },
         'mode': 'binary'
+    },
+    'entrep': {
+        'tasks': ENTREP_TASKS,
+        'data_files': {
+            'train': 'entrep-train-meta.csv',
+            'test': 'entrep-test-meta.csv',
+            'val': 'entrep-val-meta.csv'
+        },
+        'mode': 'multiclass'
     }
 }
 
 # Supported model types
-SUPPORTED_MODELS = ['medclip', 'biomedclip']
+SUPPORTED_MODELS = ['medclip', 'biomedclip', 'entrep']
 
 # Default templates for text prompts
 DEFAULT_TEMPLATES = {
     'medclip': 'this is a photo of ',
     'biomedclip': 'this is a chest x-ray showing ',
+    'entrep': 'this is an endoscopic image of ',
     'general': 'this is an image of '
 }
 
