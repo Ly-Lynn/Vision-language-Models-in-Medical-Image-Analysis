@@ -27,6 +27,12 @@ from .rsna import (
     create_rsna_dataloader
 )
 
+from .entrep import (
+    ENTREPDataset,
+    ENTREPCollator,
+    create_entrep_dataloader
+)
+
 from .factory import (
     DatasetFactory,
     create_dataloader,
@@ -59,8 +65,13 @@ __all__ = [
     # RSNA
     'RSNADataset',
     'RSNAZeroShotCollator',
-    'RSNASupervisedCollator',
+    # 'RSNASupervisedCollator',
     'create_rsna_dataloader',
+    
+    # ENTREP
+    'ENTREPDataset',
+    'ENTREPCollator',
+    'create_entrep_dataloader',
     
     # Factory
     'DatasetFactory',

@@ -1,0 +1,58 @@
+# ENTRep Contrastive Learning Configuration
+
+# Model configuration
+model:
+  model_type: 'entrep'
+  text_encoder_type: 'clip'
+  vision_encoder_type: 'endovit'
+  model_name: 'openai/clip-vit-base-patch32'
+  feature_dim: 768
+  dropout_rate: 0.3
+  dropout: 0.1
+  num_classes: 7
+  freeze_backbone: false
+  text_checkpoint: null
+  vision_checkpoint: null
+  logit_scale_init_value: 0.07
+  pretrained: true
+
+# Dataset configuration
+dataset:
+  dataset_name: 'entrep'
+  dataset_type: 'contrastive'
+  data_root: 'local_data/entrep'
+  model_type: 'entrep'
+  batch_size: 32
+  num_workers: 4
+  tokenizer_name: 'openai/clip-vit-base-patch32'
+
+# Training configuration
+training:
+  num_epochs: 100
+  val_every: 1
+  save_every: 5
+  use_amp: true  # Mixed precision training
+
+# Optimizer configuration
+optimizer:
+  type: 'adamw'
+  lr: 1e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+
+# Learning rate scheduler
+scheduler:
+  type: 'cosine'
+  T_max: 100
+  eta_min: 1e-6
+
+# Loss configuration
+loss:
+  type: 'contrastive'
+
+# Experiment settings
+experiment:
+  seed: 42
+  output_dir: './checkpoints'
+  use_wandb: false
+  wandb_project: 'medical-vlms'

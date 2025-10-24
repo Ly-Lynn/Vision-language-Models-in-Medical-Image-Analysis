@@ -1,5 +1,9 @@
 from torchvision import transforms
 
+RANDOM_STATE = 22520691
+TRAIN_RATIO = 0.8
+TEST_RATIO = 0.1
+VAL_RATIO = 0.1
 
 # Model types
 BERT_TYPE = 'emilyalsentzer/Bio_ClinicalBERT'

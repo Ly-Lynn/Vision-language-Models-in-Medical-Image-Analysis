@@ -9,6 +9,7 @@ from .mimic import (
 )
 from .covid import COVIDDataset, COVIDZeroShotCollator, COVIDSupervisedCollator
 from .rsna import RSNADataset, RSNAZeroShotCollator
+from .entrep import ENTREPDataset, ENTREPCollator
 from ..utils.constants import DATASET_CONFIGS, SUPPORTED_MODELS
 from ..utils.logging_config import get_logger
 
@@ -26,6 +27,9 @@ class DatasetFactory:
         },
         'rsna': {
             'classification': RSNADataset
+        },
+        'entrep': {
+            'contrastive': ENTREPDataset
         }
     }
     
@@ -41,6 +45,9 @@ class DatasetFactory:
         'rsna': {
             'zeroshot': RSNAZeroShotCollator,
             # 'supervised': RSNASupervisedCollator
+        },
+        'entrep': {
+            'contrastive': ENTREPCollator
         }
     }
     
