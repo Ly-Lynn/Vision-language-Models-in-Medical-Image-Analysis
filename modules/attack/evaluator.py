@@ -22,7 +22,7 @@ class DCTDecoder:
         V = torch.cos(math.pi * (v + 0.5) * kW / W)   # [W,f]
         if coeffs.ndim == 3: coeffs = coeffs.unsqueeze(0)
         T = torch.einsum('hi,pcij->pchj', U, coeffs)   # [pop,C,H,f]
-        X = torch.einsum('pchj,wj->pch w', T, V)      # [pop,C,H,W]
+        X = torch.einsum('pchj,wj->pchw', T, V)      # [pop,C,H,W]
         return X
 
 class EvaluatePerturbation:
