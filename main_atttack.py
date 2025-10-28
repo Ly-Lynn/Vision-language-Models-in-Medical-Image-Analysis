@@ -107,6 +107,7 @@ def main(args):
             img_attack = size_transform(img).convert("RGB")
             img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
             img_feats = model.encode_posttransform_image(img_attack_tensor)
+        
         elif args.mode == "pre_transform": # w/o knoiwng transform
             img_attack = img.convert("RGB")
             img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()

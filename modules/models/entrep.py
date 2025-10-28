@@ -438,16 +438,16 @@ class ENTRepModel(nn.Module):
                 ckp_path=checkpoint,
                 pretrained=pretrained
             )
-        elif encoder_type == 'endovit':
-            # EndoViT doesn't need pretrained CLIP models, so we can always create it
-            return EndoViTVisionEncoder(
-                model_name="egeozsoy/EndoViT",
-                feature_dim=feature_dim,
-                num_classes=num_classes,
-                dropout=dropout,
-                freeze_backbone=freeze_backbone,
-                ckp_path=checkpoint
-            )
+        # elif encoder_type == 'endovit':
+        #     # EndoViT doesn't need pretrained CLIP models, so we can always create it
+        #     return EndoViTVisionEncoder(
+        #         model_name="egeozsoy/EndoViT",
+        #         feature_dim=feature_dim,
+        #         num_classes=num_classes,
+        #         dropout=dropout,
+        #         freeze_backbone=freeze_backbone,
+        #         ckp_path=checkpoint
+        #     )
         elif encoder_type == 'dinov2':
             # DinoV2 loads from torch.hub, separate from CLIP
             return DinoV2VisionEncoder(
