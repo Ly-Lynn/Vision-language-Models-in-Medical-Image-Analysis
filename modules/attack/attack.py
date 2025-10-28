@@ -1,139 +1,204 @@
 import torch
-import torch.nn as nn
-from typing import List
-from .util import pil_to_tensor, tensor_to_pillow, project_delta
+import numpy as np
+from typing import Any, Dict
+from .util import clamp_eps, project_delta
+from tqdm import tqdm
 from time import time
-import math
 
-class DCTDecoder:
-    def __init__(self, f_ratio, device='cuda', dtype=torch.float32):
-        self.f_ratio = f_ratio
-        self.device = device
-        self.dtype = dtype
-    
-    @torch.no_grad()
-    def __call__(self, coeffs, W, H):   # coeffs: [pop, C, f, f]
-        f = int(self.f_ratio * H)
-        u = torch.arange(H, device=self.device, dtype=self.dtype).view(-1,1)
-        v = torch.arange(W, device=self.device, dtype=self.dtype).view(-1,1)
-        kH = torch.arange(f, device=self.device, dtype=self.dtype).view(1,-1)
-        kW = torch.arange(f, device=self.device, dtype=self.dtype).view(1,-1)
-        U = torch.cos(math.pi * (u + 0.5) * kH / H)   # [H,f]
-        V = torch.cos(math.pi * (v + 0.5) * kW / W)   # [W,f]
-        if coeffs.ndim == 3: coeffs = coeffs.unsqueeze(0)
-        T = torch.einsum('hi,pcij->pchj', U, coeffs)   # [pop,C,H,f]
-        X = torch.einsum('pchj,wj->pch w', T, V)      # [pop,C,H,W]
-        return X
 
-class EvaluatePerturbation:
-    def __init__(
-        self,
-        model: nn.Module,
-        class_prompts: List[str], # (NUM_CLASSES x D)
-        mode: str="post_transform", # mode for transform
-        decoder: DCTDecoder=None,
-        eps: float=0.03,
-        norm: str='linf'
-    ):
-        self.model = model
-        self.decoder = decoder
-        self.class_text_feats = self.extract_centroid_vector(class_prompts)
-        self.mode = mode
-        self.eps = eps
+
+
+class BaseAttack:
+
+    def __init__(self, evaluator, eps=8/255, norm="l2", device=None):
+        self.evaluator = evaluator
+        self.eps = float(eps)
         self.norm = norm
-    def set_data(self, image, clean_pred_id):
-        self.img = image
-        self.img_tensor = pil_to_tensor([image]).cuda()
-        if self.decoder:
-            _, C, img_W, img_H = self.img_tensor.shape
-            self.img_W, self.img_H = img_W, img_H
-            self.lq_shape = (1, 3, int(self.decoder.f_ratio * self.img_W), int(self.decoder.f_ratio * self.img_W))
+        self.device = device if device is not None else next(self.evaluator.model.parameters()).device
+
+    def evaluate_population(self, deltas: torch.Tensor) -> np.ndarray:
+        with torch.no_grad():
+            margins, l2s = self.evaluator.evaluate_blackbox(deltas)  # torch (pop,)
+            return margins.clone(), l2s.clone()
         
-        self.clean_pred_id = clean_pred_id
+    def is_success(self, margin):
+        if margin <= 0:
+            return True
+        return False
+    
+    def z_to_delta(self, z):
+        s = torch.tanh(z)           # s in (-1,1)
+        return self.eps * s
+
+class ES_1_Lambda(BaseAttack):
+    def __init__(self, evaluator, eps=8/255, norm="linf",
+                 max_evaluation=10000, lam=64, c_inc=1.5, c_dec=0.9, device='cuda'):
+        super().__init__(evaluator, eps, norm, device)
+        # assert lam >= 2 and c_inc > 1.0 and 0.0 < c_dec < 1.0
+        self.lam = int(lam)
+        self.c_inc = float(c_inc)
+        self.c_dec = float(c_dec)
+        self.sigma = 1.1  # σ tuyệt đối
+        self.max_evaluation = max_evaluation
+
+    def run(self) -> Dict[str, Any]:
+        sigma = self.sigma
+        if self.evaluator.decoder:
+            _, C, H, W = self.evaluator.lq_shape
+        else:
+            _, C, H, W = self.evaluator.img_tensor.shape
         
-    
-    @torch.no_grad() 
-    def extract_centroid_vector(self, class_prompts): 
-        class_features = [] 
-        for class_name, item in class_prompts.items(): 
-            text_feats = self.model.encode_text(item) 
-            mean_feats = text_feats.mean(dim=0)
-            class_features.append(mean_feats) 
+        m = torch.randn((1, C, H, W), device=self.device)
+        delta_m = self.z_to_delta(m)
+        delta_m = project_delta(delta_m, self.eps, self.norm)
+
+        f_m, l2_m = self.evaluator.evaluate_blackbox(delta_m)
+        history = [[float(f_m.item()), float(l2_m.item())]]
+
+        num_evaluation = 1
+        while num_evaluation < self.max_evaluation:
+            noise = torch.randn((self.lam, C, H, W), device=self.device)
+            X = m + self.sigma * noise
+            X_delta = self.z_to_delta(X)
+            X_delta = project_delta(X_delta, self.eps, self.norm)
+
+            margins, l2s = self.evaluate_population(X_delta)
+            num_evaluation += self.lam
+            idx_best = torch.argmin(margins).item()
+            x_best = X[idx_best].clone()
+            f_best = float(margins[idx_best].item())
+            l2_best = float(l2s[idx_best].item())
+            x_delta_best = X_delta[idx_best].clone()
+            if f_best < f_m:
+                m = x_best.clone()
+                delta_m = x_delta_best.clone()
+                l2_m = l2_best
+                f_m = f_best
+                sigma *= self.c_inc
+                # sigma = min(self.eps, self.sigma)
+            else:
+                sigma *= self.c_dec            
+                # sigma = max(1e-6, sigma)     
             
-        class_features = torch.stack(class_features) # NUM_ClASS x D 
-        return class_features
+            print("Best loss: ", f_m, " l2: ", l2_m)
+
+            history.append([float(f_m), float(l2_m)])
+            if self.is_success(f_m):
+                break
             
+        if self.evaluator.decoder:
+            delta_m = self.evaluator.decoder(delta_m, self.evaluator.img_W, self.evaluator.img_H)
+            delta_m = project_delta(delta_m, self.eps, self.norm)
+
+            
+        return {"best_delta": delta_m, "best_margin": f_m, "history": history}
+
+class ES_1_Lambda_visual(BaseAttack):
+    def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000,
+                 lam=64, c_inc=1.5, c_dec=0.9, device='cuda'):
+        super().__init__(evaluator, eps, norm, device)
+        # assert lam >= 2 and c_inc > 1.0 and 0.0 < c_dec < 1.0
+        self.lam = int(lam)
+        self.c_inc = float(c_inc)
+        self.c_dec = float(c_dec)
+        self.sigma = 1.1  # σ tuyệt đối
+        self._bs_steps = 50
+        self.visual_interval = 5
+        self.max_evaluation = max_evaluation
+
+    def optimize_visual(self, m, delta_m, f_m, l2_m):
+
+        left, right = 0.0, 1.0
+        best_m = m.clone()
+        best_margin = float(f_m)
+        best_l2 = l2_m
+        best_delta_m = delta_m.clone()
+        num_evaluation = 0
+        for _ in range(self._bs_steps):
+            alpha = 0.5 * (left + right)
+            m_try = alpha * m
+            m_delta_try = self.z_to_delta(m_try)
+            m_delta_try = project_delta(m_delta_try, self.eps, self.norm)
+            margin_try, l2_try = self.evaluator.evaluate_blackbox(m_delta_try)
+            num_evaluation += 1
+            if self.is_success(margin_try):
+                right = alpha
+                best_m = m_try
+                best_margin = margin_try
+                best_delta_m = m_delta_try
+                best_l2 = l2_try
+            else:
+                left = alpha
+
+        return best_m, best_delta_m, best_margin, num_evaluation, best_l2
+            
+
+
+    def run(self) -> Dict[str, Any]:
+        sigma = self.sigma
+        if self.evaluator.decoder:
+            _, C, H, W = self.evaluator.lq_shape
+        else:
+            _, C, H, W = self.evaluator.img_tensor.shape
+            
+        m = torch.randn((1, C, H, W), device=self.device)
+        delta_m = self.z_to_delta(m)
+        delta_m = project_delta(delta_m, self.eps, self.norm)
+
+        f_m, l2_m = self.evaluator.evaluate_blackbox(delta_m)
+        history = [[float(f_m.item()), float(l2_m.item())]]
     
-    @torch.no_grad()
-    def cal_l2(self, perturbations: torch.Tensor) -> torch.Tensor:
-        return perturbations.view(perturbations.size(0), -1).norm(p=2, dim=1)
-    
-    @torch.no_grad()
-    def evaluate_blackbox(self, perturbations: torch.Tensor):
-        perturbations_ = perturbations.clone()
-        if self.decoder:
-            perturbations_ = self.decoder(perturbations, self.img_W, self.img_W)
-            perturbations_ = project_delta(perturbations_, self.eps, self.norm)        
-        adv_imgs = self.img_tensor + perturbations_
-        adv_imgs = torch.clamp(adv_imgs, 0, 1)
+        visual_interval = None
+        num_evaluation = 1
+        iter = 0
+        while num_evaluation < self.max_evaluation:
+            noise = torch.randn((self.lam, C, H, W), device=self.device)
+            X = m + sigma * noise
+            X_delta = self.z_to_delta(X)
+            X_delta = project_delta(X_delta, self.eps, self.norm)
+
+            margins, l2s = self.evaluate_population(X_delta)
+            num_evaluation += self.lam
+            idx_best = torch.argmin(margins).item()
+            x_best = X[idx_best].clone()
+            f_best = float(margins[idx_best].item())
+            l2_best = float(l2s[idx_best].item())
+            x_delta_best = X_delta[idx_best].clone()
+
+            if f_best < f_m:
+                m = x_best.clone()
+                delta_m = x_delta_best
+                f_m = f_best
+                l2_m = l2_best
+                sigma *= self.c_inc
+                sigma = min(self.eps, sigma)
+            else:
+                sigma *= self.c_dec       
+                sigma = max(1e-6, sigma)     
+            
+            history.append([f_m, l2_m])
+            
+            print("Best loss: ", f_m, " L2: ", l2_m )
+            
+            if self.is_success(f_m) and not visual_interval: 
+                m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
+                delta_m = self.z_to_delta(m)
+                delta_m = project_delta(delta_m, self.eps, self.norm)
+
+                visual_interval = self.visual_interval
+                num_evaluation += visual_evaluation
                 
-        if self.mode == "post_transform":
-            adv_feats = self.model.encode_posttransform_image(adv_imgs)  # (B, D)
-        
-        elif self.mode == "pre_transform":
-            adv_feats = self.model.encode_pretransform_image(adv_imgs)  # (B, D)
-        
-        sims = adv_feats @ self.class_text_feats.T     # (B, NUM_CLASSES)
-        # Correct class similarity
-        correct_sim = sims[:, self.clean_pred_id].unsqueeze(-1)
+            if visual_interval and iter % visual_interval:
+                m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
+                delta_m = self.z_to_delta(m)
+                delta_m = project_delta(delta_m, self.eps, self.norm)
+                num_evaluation += visual_evaluation
+            
+            iter += 1
 
-        # Max of other classes
-        mask = torch.ones_like(sims, dtype=bool)
-        mask[:, self.clean_pred_id] = False
-        other_max_sim = sims[mask].view(sims.size(0), -1).max(dim=1, keepdim=True).values  # (B, 1)
-        margin = correct_sim - other_max_sim
-        
-        # l2
-        l2 = self.cal_l2(perturbations_)
-        return margin, l2
-    
-  
-    
-    def take_adv_img(self, perturbation):
-        adv_imgs = self.img_tensor + perturbation
-        adv_imgs = torch.clamp(adv_imgs, 0, 1)
-        pil_adv_imgs = tensor_to_pillow(adv_imgs) # pillow image
-        return adv_imgs, pil_adv_imgs
-    
-    
-# ----- HÀM TEST -----
-def test_decoder_linear():
-    H = W = 32
-    C = 1
-    pop = 1
-    f_ratio = 0.5  # giữ 50% tần số đầu
-    device = 'cpu'
+        if self.evaluator.decoder:
+            delta_m = self.evaluator.decoder(delta_m, self.evaluator.img_W, self.evaluator.img_H)
+            delta_m = project_delta(delta_m, self.eps, self.norm)
 
-    decoder = DCTDecoder(f_ratio, device=device)
-
-    # tạo ngẫu nhiên hệ số DCT (latent)
-    coeffs = torch.randn((pop, C, int(f_ratio*H), int(f_ratio*W)), device=device)
-    alpha = 0.3  # hệ số co giãn
-
-    # decode
-    X1 = decoder(coeffs, W, H)
-    X2 = decoder(alpha * coeffs, W, H)
-
-    # kiểm tra tuyến tính
-    a = torch.norm(X1)
-    b = torch.norm(X2)
-    print(b/a)
-
-    # visualize 1 kênh để trực quan
-    img1 = X1[0,0].cpu().numpy()
-    img2 = X2[0,0].cpu().numpy()
-
-
-
-# ----- CHẠY TEST -----
-test_decoder_linear()
+            
+        return {"best_delta": delta_m, "best_margin": f_m, "history": history}

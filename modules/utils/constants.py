@@ -190,6 +190,14 @@ MODEL_TRANSFORMS = {
             ),
         ]
     ),
+    'entrep': transforms.Compose(
+        [
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.Resize((IMG_SIZE, IMG_SIZE)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        ]
+    ),
 }
 SIZE_TRANSFORM = {
     'medclip': transforms.Compose(

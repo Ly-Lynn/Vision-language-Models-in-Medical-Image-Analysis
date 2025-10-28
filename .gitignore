@@ -9,3 +9,5 @@ pretrained/*
 example.py
 dataset/__pycache__
 attack_dir/
+local_model/*
+checkpoints/*

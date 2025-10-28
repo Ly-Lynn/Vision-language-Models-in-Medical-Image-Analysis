@@ -36,7 +36,13 @@ class ENTREPDataset(BaseContrastiveDataset):
         transform: Optional[transforms.Compose] = None,
         **kwargs
     ):
-        super().__init__(data_root, split, model_type, transform=transform, **kwargs)
+        super().__init__(
+            data_root=data_root,
+            split=split,
+            model_type=model_type,
+            transform=transform,
+            **kwargs
+        )
         
         self.df = self._load_data()
     def create_csv(self) -> pd.DataFrame:
@@ -145,6 +151,10 @@ class ENTREPDataset(BaseContrastiveDataset):
         # Create label mapping if needed
         self.class_names = ['nose', 'vocal-throat', 'ear', 'throat']
         self.num_classes = len(self.class_names)
+    
+    def get_class_names(self) -> List[str]:
+        """Return list of class names"""
+        return self.class_names if hasattr(self, 'class_names') else ['nose', 'vocal-throat', 'ear', 'throat']
         
     def __len__(self) -> int:
         return len(self.df)
@@ -226,12 +236,15 @@ class ENTREPCollator(BaseCollator):
             self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
         else:
             # Default tokenizers
-            if model_type in ['entrep', 'medclip']:
+            if model_type == 'medclip':
                 self.tokenizer = AutoTokenizer.from_pretrained("emilyalsentzer/Bio_ClinicalBERT")
                 self.tokenizer.model_max_length = 77
             elif model_type == 'biomedclip':
                 self.tokenizer = get_tokenizer("hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224")
                 self.context_length = 256
+            elif model_type == 'entrep':
+                self.tokenizer = AutoTokenizer.from_pretrained("medicalai/ClinicalBERT")
+                self.tokenizer.model_max_length = 77
             else:
                 # Default to CLIP tokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
@@ -293,6 +306,19 @@ def create_entrep_dataloader(
     """
     Create ENTREP dataloader for contrastive learning
     """
+    # Use default transform if not provided
+    if transform is None:
+        from ..utils.constants import MODEL_TRANSFORMS
+        if model_type in MODEL_TRANSFORMS:
+            transform = MODEL_TRANSFORMS[model_type]
+        else:
+            logger.warning(f"No default transform for model_type={model_type}, using basic transform")
+            transform = transforms.Compose([
+                transforms.Lambda(lambda x: x.convert("RGB")),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor()
+            ])
+    
     # Create dataset
     dataset = ENTREPDataset(
         data_root=data_root,

@@ -119,8 +119,8 @@ class ENTRepTrainer:
         """Create optimizer from config"""
         opt_config = self.config.get('optimizer', {})
         opt_type = opt_config.get('type', 'adam').lower()
-        lr = opt_config.get('lr', 1e-4)
-        weight_decay = opt_config.get('weight_decay', 0.01)
+        lr = float(opt_config.get('lr', 1e-4))
+        weight_decay = float(opt_config.get('weight_decay', 0.01))
         
         # Get model parameters
         if self.is_parallel:
@@ -133,20 +133,20 @@ class ENTRepTrainer:
                 params, 
                 lr=lr, 
                 weight_decay=weight_decay,
-                betas=opt_config.get('betas', (0.9, 0.999))
+                betas=(float(opt_config.get('betas', (0.9, 0.999))[0]), float(opt_config.get('betas', (0.9, 0.999))[1]))
             )
         elif opt_type == 'adamw':
             optimizer = torch.optim.AdamW(
                 params,
                 lr=lr,
                 weight_decay=weight_decay,
-                betas=opt_config.get('betas', (0.9, 0.999))
+                betas=(float(opt_config.get('betas', (0.9, 0.999))[0]), float(opt_config.get('betas', (0.9, 0.999))[1]))
             )
         elif opt_type == 'sgd':
             optimizer = torch.optim.SGD(
                 params,
                 lr=lr,
-                momentum=opt_config.get('momentum', 0.9),
+                momentum=float(opt_config.get('momentum', 0.9)),
                 weight_decay=weight_decay
             )
         else:
@@ -166,20 +166,20 @@ class ENTRepTrainer:
         if sched_type == 'cosine':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 optimizer,
-                T_max=sched_config.get('T_max', 100),
-                eta_min=sched_config.get('eta_min', 1e-6)
+                T_max=int(sched_config.get('T_max', 100)),
+                eta_min=float(sched_config.get('eta_min', 1e-6))
             )
         elif sched_type == 'step':
             scheduler = torch.optim.lr_scheduler.StepLR(
                 optimizer,
-                step_size=sched_config.get('step_size', 30),
-                gamma=sched_config.get('gamma', 0.1)
+                step_size=int(sched_config.get('step_size', 30)),
+                gamma=float(sched_config.get('gamma', 0.1))
             )
         elif sched_type == 'multistep':
             scheduler = torch.optim.lr_scheduler.MultiStepLR(
                 optimizer,
-                milestones=sched_config.get('milestones', [30, 60, 90]),
-                gamma=sched_config.get('gamma', 0.1)
+                milestones=list(map(int, sched_config.get('milestones', [30, 60, 90]))),
+                gamma=float(sched_config.get('gamma', 0.1))
             )
         else:
             raise ValueError(f"Unknown scheduler type: {sched_type}")

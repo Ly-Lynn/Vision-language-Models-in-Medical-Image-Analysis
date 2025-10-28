@@ -4,8 +4,23 @@ from itertools import product
 
 from .constants import COVID_CLASS_PROMPTS, RSNA_CLASS_PROMPTS
 from .logging_config import get_logger
+from torch import nn
+import numpy as np
+import torch
 
 logger = get_logger(__name__)
+
+def setup_seed(seed: int = 42):
+    """
+    Setup seed for reproducibility
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def generate_covid_class_prompts(
     class_prompts: Optional[Dict] = None,

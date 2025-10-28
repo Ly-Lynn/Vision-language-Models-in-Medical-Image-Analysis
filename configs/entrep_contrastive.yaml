@@ -12,7 +12,7 @@ model:
   num_classes: 7
   freeze_backbone: false
   text_checkpoint: null
-  vision_checkpoint: null
+  vision_checkpoint: '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/checkpoints/entrep_dino_l.pth'
   logit_scale_init_value: 0.07
   pretrained: true
 

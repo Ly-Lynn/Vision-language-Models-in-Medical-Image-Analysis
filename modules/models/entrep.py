@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import CLIPModel
+from transformers import CLIPModel, AutoTokenizer, AutoModelForMaskedLM
 from timm.models.vision_transformer import VisionTransformer
 from pathlib import Path
 from functools import partial
@@ -16,7 +16,7 @@ from .model import BaseVisionLanguageModel, BaseSupervisedClassifier, BaseZeroSh
 class CLIPTextEncoder(TextEncoder):
     """CLIP Text Encoder"""
     
-    def __init__(self, model_name: str = "openai/clip-vit-base-patch32", 
+    def __init__(self, model_name: str = "medicalai/ClinicalBERT", 
                  feature_dim: int = 768, dropout_rate: float = 0.3, ckp_path: Optional[str] = None,
                  pretrained: bool = True):
         super().__init__(feature_dim)
@@ -24,18 +24,20 @@ class CLIPTextEncoder(TextEncoder):
         
         if pretrained:
             try:
-                self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=False)
+                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
+                                             use_safetensors=True, 
+                                             local_files_only=True,
+                                             trust_remote_code=True)
             except:
                 # Fallback if safetensors fails
-                self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=True)
+                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
+                                             use_safetensors=False, 
+                                             local_files_only=True,
+                                             trust_remote_code=True)
         else:
             # For testing - create model without pretrained weights
-            from transformers import CLIPConfig
-            config = CLIPConfig()
-            self.clip_model = CLIPModel(config)
+            self.text_model = AutoModelForMaskedLM(config)
             
-        self.text_model = self.clip_model.text_model
-        
         # Layer normalization and dropout
         self.ln = nn.LayerNorm(self.get_feature_dim())
         self.dropout = nn.Dropout(dropout_rate)
@@ -57,10 +59,19 @@ class CLIPTextEncoder(TextEncoder):
         return self.text_model.config.hidden_size
     
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, return_features: bool = False) -> torch.Tensor:
-        text_outputs = self.text_model(input_ids=input_ids, attention_mask=attention_mask)
-        embeddings = text_outputs.pooler_output
-        # embeddings = self.ln(embeddings)
-        # embeddings = self.dropout(embeddings)
+        text_outputs = self.text_model(
+        input_ids=input_ids, 
+        attention_mask=attention_mask,
+        output_hidden_states=True  # Get hidden states
+    )
+    
+        # Get the last hidden layer
+        hidden_states = text_outputs.hidden_states[-1]  # Shape: [batch, seq_len, hidden_dim]
+        
+        # Pooling: take [CLS] token (first token) or mean pooling
+        embeddings = hidden_states[:, 0, :]
+        embeddings = self.ln(embeddings)
+        embeddings = self.dropout(embeddings)
         embeddings = self.projection(embeddings)
         text_features = embeddings / embeddings.norm(dim=-1, keepdim=True)
         if return_features:
