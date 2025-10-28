@@ -35,9 +35,9 @@ def main(args):
     with open(args.index_path, "r") as f:
         indxs = [int(line.strip()) for line in f.readlines()]
     # take 100 lớp đầu, take 100 lớp sau:
-    indxs_0 = indxs[:100]
-    indxs_1 = indxs[500:600]
-    indxs = indxs_0 + indxs_1
+    # indxs_0 = indxs[:100]
+    # indxs_1 = indxs[500:600]
+    # indxs = indxs_0 + indxs_1
     print("Len attack: ", len(indxs))
     
     # ---------------- Text prompt feature -----------------
