@@ -85,7 +85,7 @@ def main(args):
             eps=args.epsilon,
             norm=args.norm,
             max_evaluation=args.max_evaluation,
-            lam=50
+            lam=args.lamda
         )
         
     elif args.attacker_name == "ES_1_Lambda_visual": # number of evalation = ierations * lambda
@@ -94,7 +94,9 @@ def main(args):
             eps=args.epsilon,
             norm=args.norm,
             max_evaluation=args.max_evaluation,
-            lam=50
+            lam=args.lamda,
+            _bs_steps=args.bs_steps, 
+            additional_eval=args.additional_eval
         )
 
                 
@@ -192,9 +194,13 @@ def get_args():
                         choices=["linf", "l2"],
                         help="Norm constraint type")
     parser.add_argument("--max_evaluation", type=int, default=10000)
+    parser.add_argument("--lamda", type=int, default=50)
+    parser.add_argument("--bs_steps", type=int, default=20)
+    parser.add_argument("--additional_eval", type=int, default=200)
     parser.add_argument("--mode", type=str, default="pre_transform",
                         choices=["pre_transform", "post_transform"],
                         help="Attack mode: before or after model transform")
+
 
     # Misc
     parser.add_argument("--seed", type=int, default=42,

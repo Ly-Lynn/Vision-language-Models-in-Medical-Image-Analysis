@@ -94,7 +94,7 @@ class ES_1_Lambda(BaseAttack):
         return {"best_delta": delta_m, "best_margin": f_m, "history": history}
 
 class ES_1_Lambda_visual(BaseAttack):
-    def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000,
+    def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000, _bs_steps=20, additional_eval=200,
                  lam=64, c_inc=1.5, c_dec=0.9, device='cuda'):
         super().__init__(evaluator, eps, norm, device)
         # assert lam >= 2 and c_inc > 1.0 and 0.0 < c_dec < 1.0
@@ -102,9 +102,10 @@ class ES_1_Lambda_visual(BaseAttack):
         self.c_inc = float(c_inc)
         self.c_dec = float(c_dec)
         self.sigma = 1.1  # σ tuyệt đối
-        self._bs_steps = 20
+        self._bs_steps = self._bs_steps
         self.visual_interval = 5
         self.max_evaluation = max_evaluation
+        self.additional_eval = self.additional_eval
 
     def optimize_visual(self, m, delta_m, f_m, l2_m):
 
@@ -187,7 +188,7 @@ class ES_1_Lambda_visual(BaseAttack):
                 delta_m = self.z_to_delta(m)
                 delta_m = project_delta(delta_m, self.eps, self.norm)
                 num_evaluation += visual_evaluation
-                stop_num_evaluation = num_evaluation + 500 # chạy thêm 50 dòng nữa
+                stop_num_evaluation = num_evaluation + self.additional_eval # chạy thêm 50 dòng nữa
                 success = True
                 
                 
