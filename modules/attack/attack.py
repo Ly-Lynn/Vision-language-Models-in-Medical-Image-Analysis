@@ -105,7 +105,7 @@ class ES_1_Lambda_visual(BaseAttack):
         self._bs_steps = _bs_steps
         self.visual_interval = 5
         self.max_evaluation = max_evaluation
-        self.additional_eval = self.additional_eval
+        self.additional_eval = additional_eval
 
     def optimize_visual(self, m, delta_m, f_m, l2_m):
 
