@@ -102,7 +102,7 @@ class ES_1_Lambda_visual(BaseAttack):
         self.c_inc = float(c_inc)
         self.c_dec = float(c_dec)
         self.sigma = 1.1  # σ tuyệt đối
-        self._bs_steps = 50
+        self._bs_steps = 20
         self.visual_interval = 5
         self.max_evaluation = max_evaluation
 
@@ -180,14 +180,14 @@ class ES_1_Lambda_visual(BaseAttack):
             
             history.append([f_m, l2_m])
             
-            # print("Best loss: ", f_m, " L2: ", l2_m )
+            print("Best loss: ", f_m, " L2: ", l2_m )
             
             if self.is_success(f_m): # neus lần đầu success
                 m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
                 delta_m = self.z_to_delta(m)
                 delta_m = project_delta(delta_m, self.eps, self.norm)
                 num_evaluation += visual_evaluation
-                stop_num_evaluation = num_evaluation + 1000 # chạy thêm 50 dòng nữa
+                stop_num_evaluation = num_evaluation + 500 # chạy thêm 50 dòng nữa
                 success = True
                 
                 
