@@ -102,7 +102,7 @@ class ES_1_Lambda_visual(BaseAttack):
         self.c_inc = float(c_inc)
         self.c_dec = float(c_dec)
         self.sigma = 1.1  # σ tuyệt đối
-        self._bs_steps = self._bs_steps
+        self._bs_steps = _bs_steps
         self.visual_interval = 5
         self.max_evaluation = max_evaluation
         self.additional_eval = self.additional_eval
