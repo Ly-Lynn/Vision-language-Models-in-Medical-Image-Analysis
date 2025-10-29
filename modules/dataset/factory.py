@@ -7,7 +7,7 @@ from .mimic import (
     MIMICContrastiveDataset,
     MIMICContrastiveCollator
 )
-from .covid import COVIDDataset, COVIDZeroShotCollator, COVIDSupervisedCollator
+from .covid import COVIDDataset, COVIDZeroShotCollator
 from .rsna import RSNADataset, RSNAZeroShotCollator
 from .entrep import ENTREPDataset, ENTREPCollator
 from ..utils.constants import DATASET_CONFIGS, SUPPORTED_MODELS
@@ -40,14 +40,13 @@ class DatasetFactory:
         },
         'covid': {
             'zeroshot': COVIDZeroShotCollator,
-            'supervised': COVIDSupervisedCollator
         },
         'rsna': {
             'zeroshot': RSNAZeroShotCollator,
             # 'supervised': RSNASupervisedCollator
         },
         'entrep': {
-            'contrastive': ENTREPCollator
+            'contrastive': ENTREPCollator,
         }
     }
     

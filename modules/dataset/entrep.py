@@ -282,7 +282,7 @@ class ENTREPCollator(BaseCollator):
             inputs['input_ids'] = text_inputs['input_ids']
             inputs['attention_mask'] = text_inputs['attention_mask']
         else:
-            # OpenCLIP tokenizer
+            # OpenCLIP 
             text_tokens = self.tokenizer(inputs['text'], context_length=self.context_length)
             inputs['text_tokens'] = text_tokens
             
@@ -290,7 +290,6 @@ class ENTREPCollator(BaseCollator):
         del inputs['text']
         
         return inputs
-
 
 def create_entrep_dataloader(
     data_root: str = 'local_data/entrep',

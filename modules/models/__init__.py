@@ -33,12 +33,20 @@ from .biomedclip import (
     BioMedCLIPFeatureExtractor
 )
 
+# ENTRep models
+from .entrep import (
+    ENTRepModel,
+    DinoV2Model,
+    EntVitModel
+)
+
 # Factory
 from .factory import (
     ModelFactory,
     create_model,
     create_medclip,
-    create_biomedclip
+    create_biomedclip,
+    create_entrep
 )
 
 # Version
@@ -67,9 +75,15 @@ __all__ = [
     'BioMedCLIPClassifier',
     'BioMedCLIPFeatureExtractor',
     
+    # ENTRep
+    'ENTRepModel',
+    'DinoV2Model',
+    'EntVitModel',
+    
     # Factory
     'ModelFactory',
     'create_model',
     'create_medclip',
     'create_biomedclip',
+    'create_entrep',
 ]

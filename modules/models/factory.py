@@ -29,8 +29,7 @@ from .biomedclip import (
     BioMedCLIPFeatureExtractor
 )
 from .entrep import (
-    ENTRepModel,
-    ENTRepClassifier
+    ENTRepModel
 )
 
 # Import constants
@@ -66,7 +65,7 @@ class ModelFactory:
             'zeroshot': BioMedCLIPClassifier
         },
         'entrep': {
-            'zeroshot': ENTRepClassifier
+            'zeroshot': ENTRepModel
         }
     }
     
@@ -84,14 +83,16 @@ class ModelFactory:
             'checkpoint': None,
         },
         'entrep': {
+            'text_encoder_type': 'clip',
+            'vision_encoder_type': 'dinov2',
             'feature_dim': 768,
-            'dropout_rate': 0.3,
             'dropout': 0.1,
             'num_classes': 7,
             'freeze_backbone': False,
-            'text_encoder_type': 'clip',
-            'vision_encoder_type': 'endovit',
-            'checkpoint': None,
+            'vision_checkpoint': None,
+            'text_checkpoint': None,
+            'logit_scale_init_value': 0.07,
+            'pretrained': True,
         }
     }
     
@@ -439,6 +440,7 @@ def create_model(model_type: str = 'medclip', **kwargs):
 def create_entrep(
     text_encoder: str = 'clip',
     vision_encoder: str = 'clip',
+    vision_checkpoint: Optional[str] = None,
     **kwargs
 ) -> BaseVisionLanguageModel:
     """
@@ -447,16 +449,33 @@ def create_entrep(
     Args:
         text_encoder: 'clip' or 'none'
         vision_encoder: 'clip', 'endovit', or 'dinov2'
+        vision_checkpoint: Path to vision encoder checkpoint
         **kwargs: Additional arguments
         
     Returns:
         ENTRep model instance
+        
+    Note:
+        If vision_checkpoint is provided and text_encoder is 'none', 
+        creates a vision-only model using wrapper (DinoV2Model/EntVitModel)
+        to ensure checkpoint loads correctly (compatible with ENTRep/model_factory.py)
     """
+    # Vision-only mode với checkpoint
+    if vision_checkpoint and text_encoder == 'none':
+        from .entrep import ENTRepModel
+        return ENTRepModel(
+            vision_encoder_type=vision_encoder,
+            vision_checkpoint=vision_checkpoint,
+            **kwargs
+        )
+    
+    # Full ENTRep model (text + vision)
     return ModelFactory.create_model(
         model_type='entrep',
         variant='base',
         text_encoder_type=text_encoder,
         vision_encoder_type=vision_encoder,
+        vision_checkpoint=vision_checkpoint,
         **kwargs
     )
 

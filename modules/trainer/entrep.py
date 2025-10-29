@@ -15,6 +15,9 @@ import numpy as np
 from tqdm import tqdm
 import wandb
 from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 
 from ..models.entrep import ENTRepModel
 from ..dataset.entrep import create_entrep_dataloader
@@ -110,6 +113,12 @@ class ENTRepTrainer:
         self.current_epoch = 0
         self.global_step = 0
         self.best_val_loss = float('inf')
+        
+        # Metrics tracking for plotting
+        self.train_losses = []
+        self.val_losses = []
+        self.epochs = []
+        self.learning_rates = []
         
         logger.info(f"✅ Trainer initialized")
         logger.info(f"📁 Checkpoints will be saved to: {self.checkpoint_dir}")
@@ -384,6 +393,163 @@ class ENTRepTrainer:
         logger.info(f"✅ Loaded checkpoint from {checkpoint_path}")
         logger.info(f"   Epoch: {self.current_epoch}, Step: {self.global_step}")
         
+    def plot_training_curves(self, save_path: Optional[str] = None):
+        """
+        Vẽ biểu đồ train và validation loss
+        
+        Args:
+            save_path: Đường dẫn lưu biểu đồ (mặc định lưu vào checkpoint_dir)
+        """
+        if not self.train_losses:
+            logger.warning("Không có dữ liệu để vẽ biểu đồ")
+            return
+            
+        # Tạo figure với 2 subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+        
+        # Plot 1: Train và Val Loss
+        ax1.plot(self.epochs, self.train_losses, 'b-', label='Train Loss', linewidth=2)
+        if self.val_losses:
+            ax1.plot(self.epochs, self.val_losses, 'r-', label='Val Loss', linewidth=2)
+        
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.set_title('Training và Validation Loss')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot 2: Learning Rate
+        if self.learning_rates:
+            ax2.plot(self.epochs, self.learning_rates, 'g-', label='Learning Rate', linewidth=2)
+            ax2.set_xlabel('Epoch')
+            ax2.set_ylabel('Learning Rate')
+            ax2.set_title('Learning Rate Schedule')
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
+            ax2.set_yscale('log')
+        else:
+            ax2.text(0.5, 0.5, 'Không có dữ liệu Learning Rate', 
+                    ha='center', va='center', transform=ax2.transAxes)
+            ax2.set_title('Learning Rate Schedule')
+        
+        plt.tight_layout()
+        
+        # Lưu biểu đồ
+        if save_path is None:
+            save_path = self.checkpoint_dir / 'training_curves.png'
+        else:
+            save_path = Path(save_path)
+            
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        logger.info(f"📊 Đã lưu biểu đồ training curves tại: {save_path}")
+        
+    def plot_loss_comparison(self, save_path: Optional[str] = None):
+        """
+        Vẽ biểu đồ so sánh train và val loss chi tiết hơn
+        
+        Args:
+            save_path: Đường dẫn lưu biểu đồ
+        """
+        if not self.train_losses:
+            logger.warning("Không có dữ liệu để vẽ biểu đồ")
+            return
+            
+        plt.figure(figsize=(12, 8))
+        
+        # Vẽ train loss
+        plt.plot(self.epochs, self.train_losses, 'b-', label='Train Loss', 
+                linewidth=2, alpha=0.8)
+        
+        # Vẽ val loss nếu có
+        if self.val_losses:
+            plt.plot(self.epochs, self.val_losses, 'r-', label='Val Loss', 
+                    linewidth=2, alpha=0.8)
+            
+            # Tìm điểm best validation loss
+            best_epoch = self.epochs[np.argmin(self.val_losses)]
+            best_loss = min(self.val_losses)
+            plt.scatter([best_epoch], [best_loss], color='red', s=100, 
+                       zorder=5, label=f'Best Val Loss: {best_loss:.4f}')
+        
+        plt.xlabel('Epoch', fontsize=12)
+        plt.ylabel('Loss', fontsize=12)
+        plt.title('Training Progress - Loss Curves', fontsize=14, fontweight='bold')
+        plt.legend(fontsize=11)
+        plt.grid(True, alpha=0.3)
+        
+        # Thêm thông tin thống kê
+        stats_text = f"Epochs: {len(self.epochs)}\n"
+        stats_text += f"Final Train Loss: {self.train_losses[-1]:.4f}\n"
+        if self.val_losses:
+            stats_text += f"Final Val Loss: {self.val_losses[-1]:.4f}\n"
+            stats_text += f"Best Val Loss: {min(self.val_losses):.4f}"
+        
+        plt.text(0.02, 0.98, stats_text, transform=plt.gca().transAxes, 
+                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+        
+        plt.tight_layout()
+        
+        # Lưu biểu đồ
+        if save_path is None:
+            save_path = self.checkpoint_dir / 'loss_comparison.png'
+        else:
+            save_path = Path(save_path)
+            
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        logger.info(f"📊 Đã lưu biểu đồ loss comparison tại: {save_path}")
+        
+    def update_metrics(self, train_loss: float, val_loss: Optional[float] = None, 
+                      learning_rate: Optional[float] = None):
+        """
+        Cập nhật metrics cho plotting
+        
+        Args:
+            train_loss: Train loss của epoch hiện tại
+            val_loss: Validation loss (optional)
+            learning_rate: Learning rate hiện tại (optional)
+        """
+        self.train_losses.append(train_loss)
+        if val_loss is not None:
+            self.val_losses.append(val_loss)
+        else:
+            # Thêm None để giữ index đồng bộ
+            self.val_losses.append(None)
+            
+        self.epochs.append(self.current_epoch + 1)
+        
+        if learning_rate is not None:
+            self.learning_rates.append(learning_rate)
+            
+    def save_metrics(self, save_path: Optional[str] = None):
+        """
+        Lưu metrics ra file JSON
+        
+        Args:
+            save_path: Đường dẫn lưu file metrics
+        """
+        if save_path is None:
+            save_path = self.checkpoint_dir / 'training_metrics.json'
+        else:
+            save_path = Path(save_path)
+            
+        metrics_data = {
+            'epochs': self.epochs,
+            'train_losses': self.train_losses,
+            'val_losses': self.val_losses,
+            'learning_rates': self.learning_rates,
+            'best_val_loss': self.best_val_loss,
+            'total_epochs': len(self.epochs)
+        }
+        
+        with open(save_path, 'w') as f:
+            json.dump(metrics_data, f, indent=2)
+            
+        logger.info(f"💾 Đã lưu metrics tại: {save_path}")
+        
     def train(self):
         """Main training loop"""
         # Create optimizer and scheduler
@@ -395,13 +561,14 @@ class ENTRepTrainer:
         train_loader = dataloaders['train']
         val_loader = dataloaders['val']
         
-        # Mixed precision training
-        use_amp = self.config.get('use_amp', False) and torch.cuda.is_available()
-        scaler = torch.cuda.amp.GradScaler() if use_amp else None
-        
         # Training config
-        num_epochs = self.config.get('num_epochs', 100)
-        val_every = self.config.get('val_every', 1)
+        training_config = self.config.get('training', {})
+        num_epochs = training_config.get('num_epochs', self.config.get('num_epochs', 100))
+        val_every = training_config.get('val_every', self.config.get('val_every', 1))
+        
+        # Mixed precision training
+        use_amp = training_config.get('use_amp', self.config.get('use_amp', False)) and torch.cuda.is_available()
+        scaler = torch.cuda.amp.GradScaler() if use_amp else None
         
         logger.info(f"🎓 Starting training for {num_epochs} epochs")
         if use_amp:
@@ -424,19 +591,21 @@ class ENTRepTrainer:
             logger.info(f"📈 Train loss: {train_metrics['loss']:.4f}")
             
             # Validate
+            val_loss = None
             if (epoch + 1) % val_every == 0:
                 val_metrics = self.validate(val_loader)
-                logger.info(f"📊 Val loss: {val_metrics['loss']:.4f}")
+                val_loss = val_metrics['loss']
+                logger.info(f"📊 Val loss: {val_loss:.4f}")
                 
                 # Check if best model
-                is_best = val_metrics['loss'] < self.best_val_loss
+                is_best = val_loss < self.best_val_loss
                 if is_best:
-                    self.best_val_loss = val_metrics['loss']
+                    self.best_val_loss = val_loss
                     
                 # Save checkpoint
                 metrics = {
                     'train_loss': train_metrics['loss'],
-                    'val_loss': val_metrics['loss']
+                    'val_loss': val_loss
                 }
                 self.save_checkpoint(metrics, is_best)
                 
@@ -445,7 +614,7 @@ class ENTRepTrainer:
                     wandb.log({
                         'epoch': epoch + 1,
                         'train/epoch_loss': train_metrics['loss'],
-                        'val/epoch_loss': val_metrics['loss'],
+                        'val/epoch_loss': val_loss,
                         'val/best_loss': self.best_val_loss
                     })
             else:
@@ -458,9 +627,30 @@ class ENTRepTrainer:
                         'epoch': epoch + 1,
                         'train/epoch_loss': train_metrics['loss']
                     })
+            
+            # Update metrics for plotting
+            current_lr = optimizer.param_groups[0]['lr']
+            self.update_metrics(
+                train_loss=train_metrics['loss'],
+                val_loss=val_loss,
+                learning_rate=current_lr
+            )
+            
+            # Vẽ biểu đồ mỗi plot_every epochs
+            plot_every = training_config.get('plot_every', 5)
+            if (epoch + 1) % plot_every == 0:
+                self.plot_training_curves()
+                self.plot_loss_comparison()
+                self.save_metrics()
                     
         logger.info(f"\n🎉 Training completed!")
         logger.info(f"📊 Best validation loss: {self.best_val_loss:.4f}")
+        
+        # Vẽ biểu đồ cuối cùng
+        logger.info("📊 Đang tạo biểu đồ cuối cùng...")
+        self.plot_training_curves()
+        self.plot_loss_comparison()
+        self.save_metrics()
         
         if self.use_wandb:
             wandb.finish()

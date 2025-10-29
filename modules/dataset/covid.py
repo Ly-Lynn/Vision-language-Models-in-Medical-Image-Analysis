@@ -252,37 +252,6 @@ class COVIDZeroShotCollator(BaseCollator):
             'class_names': self.class_names
         }
 
-
-class COVIDSupervisedCollator(BaseCollator):
-    """
-    Collator for COVID supervised classification
-    """
-    
-    def __init__(self, model_type: str = 'medclip', **kwargs):
-        super().__init__(model_type=model_type, mode='binary', **kwargs)
-        self.class_names = COVID_TASKS
-        
-    def __call__(self, batch: List[Tuple]) -> Dict[str, Any]:
-        """Process batch for supervised classification"""
-        inputs = defaultdict(list)
-        
-        for data in batch:
-            img_tensor, labels = data
-            inputs['pixel_values'].append(img_tensor)
-            inputs['labels'].append(labels)
-            
-        # Process images
-        inputs['pixel_values'] = self._process_images(inputs['pixel_values'])
-        
-        # Process labels for binary classification
-        inputs['labels'] = self._process_labels(inputs['labels'], self.class_names)
-        
-        return {
-            'pixel_values': inputs['pixel_values'],
-            'labels': inputs['labels']
-        }
-
-
 def create_covid_dataloader(
     data_root: str = 'local_data',
     split: str = 'test',

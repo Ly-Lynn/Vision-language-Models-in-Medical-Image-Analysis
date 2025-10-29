@@ -148,10 +148,12 @@ class ES_1_Lambda_visual(BaseAttack):
         f_m, l2_m = self.evaluator.evaluate_blackbox(delta_m)
         history = [[float(f_m.item()), float(l2_m.item())]]
     
-        visual_interval = None
+        success = False
         num_evaluation = 1
-        iter = 0
         while num_evaluation < self.max_evaluation:
+            if success == True and num_evaluation > stop_num_evaluation:
+                break
+                
             noise = torch.randn((self.lam, C, H, W), device=self.device)
             X = m + sigma * noise
             X_delta = self.z_to_delta(X)
@@ -180,25 +182,26 @@ class ES_1_Lambda_visual(BaseAttack):
             
             # print("Best loss: ", f_m, " L2: ", l2_m )
             
-            if self.is_success(f_m) and not visual_interval: 
+            if self.is_success(f_m): # neus lần đầu success
                 m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
                 delta_m = self.z_to_delta(m)
                 delta_m = project_delta(delta_m, self.eps, self.norm)
-
-                visual_interval = self.visual_interval
                 num_evaluation += visual_evaluation
+                stop_num_evaluation = num_evaluation + 1000 # chạy thêm 50 dòng nữa
+                success = True
                 
-            if visual_interval and iter % visual_interval:
-                m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
-                delta_m = self.z_to_delta(m)
-                delta_m = project_delta(delta_m, self.eps, self.norm)
-                num_evaluation += visual_evaluation
+                
+                
+                
+                
+         
+                
+
             
-            iter += 1
 
         if self.evaluator.decoder:
             delta_m = self.evaluator.decoder(delta_m, self.evaluator.img_W, self.evaluator.img_H)
             delta_m = project_delta(delta_m, self.eps, self.norm)
 
             
-        return {"best_delta": delta_m, "best_margin": f_m, "history": history}
+        return {"best_delta": delta_m, "best_margin": f_m, "history": history, "num_evaluation": num_evaluation}

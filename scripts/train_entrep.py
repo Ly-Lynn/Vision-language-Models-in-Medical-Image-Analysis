@@ -76,8 +76,30 @@ def main():
     # Create model
     logger.info("🏗️ Creating ENTRep model...")
     model_config = config['model']
+    
     model = create_model(**model_config)
-    logger.info(f"✅ Model created: {model.get_encoder_info()}")
+    
+    # Print model information
+    model_type = type(model).__name__
+    logger.info(f"✅ Model created: {model_type}")
+    
+    # Print encoder info if available
+    if hasattr(model, 'get_encoder_info'):
+        encoder_info = model.get_encoder_info()
+        for key, value in encoder_info.items():
+            logger.info(f"   {key}: {value}")
+    
+    # Check wrapper usage
+    if hasattr(model, 'vision_model'):
+        vision_type = type(model.vision_model).__name__
+        if vision_type in ['DinoV2Model', 'EntVitModel']:
+            logger.info(f"   🎁 Vision wrapper: {vision_type}")
+    
+    # Print parameter counts
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"   📊 Total parameters: {total_params:,}")
+    logger.info(f"   📊 Trainable parameters: {trainable_params:,}")
     
     # Create trainer
     logger.info("🎓 Creating trainer...")

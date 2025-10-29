@@ -16,7 +16,6 @@ from .mimic import (
 from .covid import (
     COVIDDataset,
     COVIDZeroShotCollator,
-    COVIDSupervisedCollator,
     create_covid_dataloader
 )
 
@@ -59,7 +58,6 @@ __all__ = [
     # COVID
     'COVIDDataset',
     'COVIDZeroShotCollator',
-    'COVIDSupervisedCollator',
     'create_covid_dataloader',
     
     # RSNA
