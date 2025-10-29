@@ -6,7 +6,7 @@ model:
   text_encoder_type: 'clip'
   vision_encoder_type: 'dinov2'
   # vision_encoder_type: 'endovit'
-  model_name: 'dinov2_vitb14'  
+  model_name: 'dinov2_vitl14'  
   # model_name: 'egeozsoy/EndoViT'  
   feature_dim: 768 
   dropout: 0.1
@@ -26,7 +26,8 @@ model:
   # Option 2: Vision encoder checkpoint riêng (từ ENTRep/model_factory.py)
   # Dùng khi transfer learning từ pretrained vision encoder
   # IGNORED nếu entrep_checkpoint được set
-  vision_checkpoint: '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/checkpoints/entrep_dino_b.pth'
+  vision_checkpoint: '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/checkpoints/entrep_dino_l.pth'
+  # vision_checkpoint: '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/checkpoints/entrep_vision.pth'
   # vision_checkpoint: null
   # Option 3: Text encoder checkpoint riêng
   # IGNORED nếu entrep_checkpoint được set

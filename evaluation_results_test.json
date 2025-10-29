@@ -1,0 +1,67 @@
+{
+  "accuracy": 0.8771929824561403,
+  "precision": 0.8882352941176471,
+  "recall": 0.8771929824561403,
+  "f1": 0.8777815095669036,
+  "per_class_metrics": {
+    "precision": [
+      1.0,
+      0.8235294117647058,
+      0.9,
+      0.0
+    ],
+    "recall": [
+      0.8709677419354839,
+      1.0,
+      1.0,
+      0.0
+    ],
+    "f1": [
+      0.9310344827586207,
+      0.9032258064516129,
+      0.9473684210526315,
+      0.0
+    ],
+    "support": [
+      31,
+      14,
+      9,
+      3
+    ]
+  },
+  "confusion_matrix": [
+    [
+      27,
+      0,
+      1,
+      3
+    ],
+    [
+      0,
+      14,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      9,
+      0
+    ],
+    [
+      0,
+      3,
+      0,
+      0
+    ]
+  ],
+  "classification_report": "              precision    recall  f1-score   support\n\n        nose       1.00      0.87      0.93        31\nvocal-throat       0.82      1.00      0.90        14\n         ear       0.90      1.00      0.95         9\n      throat       0.00      0.00      0.00         3\n\n    accuracy                           0.88        57\n   macro avg       0.68      0.72      0.70        57\nweighted avg       0.89      0.88      0.88        57\n",
+  "class_names": [
+    "nose",
+    "vocal-throat",
+    "ear",
+    "throat"
+  ],
+  "num_test_cases": 57,
+  "successful_predictions": 57
+}

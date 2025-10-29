@@ -3,6 +3,7 @@ __pycache__/
 *$py.class
 BioMedCLIP/*
 MedCLIP/*
+ENTRep/*
 local_data/*
 pretrained/*
 *.ipynb
