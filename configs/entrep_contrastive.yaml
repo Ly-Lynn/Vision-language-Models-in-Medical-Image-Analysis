@@ -42,7 +42,7 @@ dataset:
   dataset_type: 'contrastive'
   data_root: 'local_data/entrep'
   model_type: 'entrep'
-  batch_size: 32
+  batch_size: 64
   num_workers: 4
   tokenizer_name: 'openai/clip-vit-base-patch32'
 
@@ -57,7 +57,7 @@ training:
 # Optimizer configuration
 optimizer:
   type: 'adamw'
-  lr: 1e-4
+  lr: 1e-5
   weight_decay: 0.01
   betas: [0.9, 0.999]
 

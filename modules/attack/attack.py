@@ -181,7 +181,7 @@ class ES_1_Lambda_visual(BaseAttack):
             
             history.append([f_m, l2_m])
             
-            print("Best loss: ", f_m, " L2: ", l2_m )
+            # print("Best loss: ", f_m, " L2: ", l2_m )
             
             if self.is_success(f_m): # neus lần đầu success
                 m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
