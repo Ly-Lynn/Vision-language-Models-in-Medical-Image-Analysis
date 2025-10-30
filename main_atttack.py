@@ -36,9 +36,9 @@ def main(args):
         indxs = [int(line.strip()) for line in f.readlines()]
 
     if not args.end_idx:
-        indxs = indxs[args.start_idx, :]
+        indxs = indxs[args.start_idx:]
     else:
-        indxs = indxs[args.start_idx, args.end_idx]
+        indxs = indxs[args.start_idx:args.end_idx]
     # take 100 lớp đầu, take 100 lớp sau:
     # indxs_0 = indxs[:100]
     # indxs_1 = indxs[500:600]
