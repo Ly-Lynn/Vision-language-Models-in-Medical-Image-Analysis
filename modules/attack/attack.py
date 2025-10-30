@@ -91,7 +91,7 @@ class ES_1_Lambda(BaseAttack):
             delta_m = project_delta(delta_m, self.eps, self.norm)
 
             
-        # return {"best_delta": delta_m, "best_margin": f_m, "history": history, "num_evaluation": num_evaluation}
+        return {"best_delta": delta_m, "best_margin": f_m, "history": history, "num_evaluation": num_evaluation}
 
 class ES_1_Lambda_visual(BaseAttack):
     def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000, _bs_steps=20, additional_eval=200,
@@ -181,7 +181,7 @@ class ES_1_Lambda_visual(BaseAttack):
             
             history.append([f_m, l2_m])
             
-            print(f"[{num_evaluation} - attack phase] Best loss: ", f_m, " L2: ", l2_m )
+            # print(f"[{num_evaluation} - attack phase] Best loss: ", f_m, " L2: ", l2_m )
             
             if self.is_success(f_m): # neus lần đầu success
                 m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
