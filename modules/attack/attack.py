@@ -80,7 +80,7 @@ class ES_1_Lambda(BaseAttack):
                 sigma *= self.c_dec            
                 # sigma = max(1e-6, sigma)     
             
-            # print("Best loss: ", f_m, " l2: ", l2_m)
+            print("Best loss: ", f_m, " l2: ", l2_m)
 
             history.append([float(f_m), float(l2_m)])
             if self.is_success(f_m):
