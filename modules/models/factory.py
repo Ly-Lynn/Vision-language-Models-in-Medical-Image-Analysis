@@ -97,245 +97,205 @@ class ModelFactory:
     }
     
     @classmethod
+    def _validate_model_type(cls, model_type: str, variant: str):
+        """
+        Validate model type and variant
+        
+        Args:
+            model_type: Type of model
+            variant: Model variant
+            
+        Raises:
+            ValueError: If model type or variant is invalid
+        """
+        if model_type not in cls.MODEL_REGISTRY:
+            available_types = list(cls.MODEL_REGISTRY.keys())
+            raise ValueError(
+                f"Unknown model type: '{model_type}'. "
+                f"Available types: {available_types}"
+            )
+        
+        model_variants = cls.MODEL_REGISTRY[model_type]
+        if variant not in model_variants:
+            available_variants = list(model_variants.keys())
+            raise ValueError(
+                f"Unknown variant '{variant}' for model type '{model_type}'. "
+                f"Available variants: {available_variants}"
+            )
+    
+    @classmethod
+    def _load_checkpoint(cls, checkpoint_path: str) -> Dict[str, Any]:
+        """
+        Load checkpoint from file
+        
+        Args:
+            checkpoint_path: Path to checkpoint file
+            
+        Returns:
+            Dictionary containing checkpoint data
+        """
+        logger.info(f"📥 Loading checkpoint from: {checkpoint_path}")
+        
+        if not checkpoint_path or not isinstance(checkpoint_path, str):
+            raise ValueError(f"Invalid checkpoint path: {checkpoint_path}")
+        
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu')
+            logger.info(f"✅ Checkpoint loaded successfully")
+            return checkpoint
+        except Exception as e:
+            logger.error(f"❌ Failed to load checkpoint: {e}")
+            raise
+    
+    @classmethod
+    def _prepare_model_config(cls, model_type: str, checkpoint: Optional[str], **kwargs) -> Dict[str, Any]:
+        """
+        Prepare model configuration by merging defaults with user-provided kwargs
+        
+        Args:
+            model_type: Type of model
+            checkpoint: Optional checkpoint path
+            **kwargs: Additional model-specific arguments
+            
+        Returns:
+            Merged configuration dictionary
+        """
+        # Start with default config for this model type
+        config = cls.DEFAULT_CONFIGS.get(model_type, {}).copy()
+        
+        # Update with user-provided kwargs
+        config.update(kwargs)
+        
+        # Set checkpoint path if provided
+        if checkpoint:
+            config['checkpoint'] = checkpoint
+        
+        return config
+    
+    @classmethod
+    def _instantiate_model(cls, model_type: str, model_class, config: Dict[str, Any]) -> BaseVisionLanguageModel:
+        """
+        Instantiate model based on type and configuration
+        
+        Args:
+            model_type: Type of model
+            model_class: Model class to instantiate
+            config: Model configuration
+            
+        Returns:
+            Model instance
+        """
+        logger.info(f"🏗️ Creating {model_type} model...")
+        
+        try:
+            model = model_class(**config)
+            logger.info(f"✅ {model_type} model created successfully")
+            return model
+        except Exception as e:
+            logger.error(f"❌ Failed to create {model_type} model: {e}")
+            raise
+    
+    @classmethod
+    def _load_pretrained_weights(cls, model: BaseVisionLanguageModel, model_type: str, checkpoint: Optional[str], pretrained: bool):
+        """
+        Load pretrained weights into model
+        
+        Args:
+            model: Model instance
+            model_type: Type of model
+            checkpoint: Optional checkpoint path
+            pretrained: Whether to load pretrained weights
+        """
+        # Load from local checkpoint file
+        if checkpoint:
+            checkpoint_data = cls._load_checkpoint(checkpoint)
+            
+            # Extract model state dict
+            if 'model_state_dict' in checkpoint_data:
+                state_dict = checkpoint_data['model_state_dict']
+            elif 'state_dict' in checkpoint_data:
+                state_dict = checkpoint_data['state_dict']
+            else:
+                # Assume entire checkpoint is the state dict
+                state_dict = checkpoint_data
+            
+            # Load state dict into model
+            try:
+                model.load_state_dict(state_dict, strict=True)
+                logger.info(f"✅ Loaded weights from checkpoint: {checkpoint}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to load checkpoint with strict=True, trying strict=False: {e}")
+                model.load_state_dict(state_dict, strict=False)
+                logger.info(f"✅ Partially loaded weights from checkpoint: {checkpoint}")
+        
+        # Load default pretrained weights (for models that support it)
+        elif pretrained and model_type == 'medclip':
+            if hasattr(model, 'from_pretrained'):
+                logger.info(f"📥 Loading pretrained weights for {model_type}...")
+                model.from_pretrained()
+                logger.info(f"✅ Pretrained weights loaded")
+    
+    @classmethod
     def create_model(
         cls,
         model_type: str = 'medclip',
         variant: str = 'base',
         checkpoint: Optional[str] = None,
         pretrained: bool = True,
+        device: Optional[str] = None,
         **kwargs
     ) -> BaseVisionLanguageModel:
         """
-        Create a vision-language model
+        Create a vision-language model with optional checkpoint loading
         
         Args:
-            model_type: 'medclip' or 'biomedclip'
-            variant: Model variant ('base', 'vision_resnet', 'vision_vit')
-            checkpoint: Path to model checkpoint
-            pretrained: Whether to load pretrained weights
+            model_type: Model type - 'medclip', 'biomedclip', or 'entrep'
+            variant: Model variant (default: 'base')
+            checkpoint: Path to local checkpoint file for loading pretrained weights
+            pretrained: Whether to load default pretrained weights (only if checkpoint is None)
+            device: Target device ('cuda', 'cpu', or None for auto-detection)
             **kwargs: Additional model-specific arguments
             
         Returns:
             Model instance
+            
+        Examples:
+            >>> # Create MedCLIP model with default pretrained weights
+            >>> model = ModelFactory.create_model('medclip', pretrained=True)
+            
+            >>> # Create ENTRep model from local checkpoint
+            >>> model = ModelFactory.create_model(
+            ...     'entrep',
+            ...     checkpoint='checkpoints/entrep_best.pt',
+            ...     vision_encoder_type='dinov2'
+            ... )
+            
+            >>> # Create BioMedCLIP model
+            >>> model = ModelFactory.create_model('biomedclip')
         """
-        # Validate model type
-        if model_type not in cls.MODEL_REGISTRY:
-            raise ValueError(f"Unknown model type: {model_type}. Available: {list(cls.MODEL_REGISTRY.keys())}")
+        # 1. Validate inputs
+        cls._validate_model_type(model_type, variant)
         
-        model_variants = cls.MODEL_REGISTRY[model_type]
+        # 2. Get model class
+        model_class = cls.MODEL_REGISTRY[model_type][variant]
         
-        if variant not in model_variants:
-            raise ValueError(f"Unknown variant '{variant}' for {model_type}. Available: {list(model_variants.keys())}")
+        # 3. Prepare configuration
+        config = cls._prepare_model_config(model_type, checkpoint, **kwargs)
         
-        # Get model class
-        model_class = model_variants[variant]
+        # 4. Instantiate model
+        model = cls._instantiate_model(model_type, model_class, config)
         
-        # Prepare configuration
-        config = cls.DEFAULT_CONFIGS.get(model_type, {}).copy()
-        config.update(kwargs)
+        # 5. Load pretrained weights
+        cls._load_pretrained_weights(model, model_type, checkpoint, pretrained)
         
-        if checkpoint:
-            config['checkpoint'] = checkpoint
+        # 6. Move to device
+        if device is None:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # Create model based on type
-        if model_type == 'medclip':
-            # Create MedCLIP model with flexible encoders
-            model = model_class(**config)
-            
-            # Load pretrained weights if requested
-            if pretrained and checkpoint is None:
-                model.from_pretrained()
-                
-        elif model_type == 'biomedclip':
-            # Create BioMedCLIP model
-            model = model_class(**config)
-            
-        elif model_type == 'entrep':
-            # Create ENTRep model
-            model = model_class(**config)
-            
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
-        
-        # Move to device if specified
-        if hasattr(model, 'to'):
-            model = model.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        model = model.to(torch.device(device))
+        logger.info(f"🔧 Model moved to device: {device}")
         
         return model
-    
-    @classmethod
-    def create_classifier(
-        cls,
-        model: Optional[BaseVisionLanguageModel] = None,
-        model_type: Optional[str] = None,
-        task_type: str = 'zeroshot',
-        num_classes: Optional[int] = None,
-        class_names: Optional[List[str]] = None,
-        freeze_encoder: bool = True,
-        ensemble: bool = False,
-        **kwargs
-    ) -> BaseClassifier:
-        """
-        Create a classifier based on a vision-language model
-        
-        Args:
-            model: Pre-initialized model (if None, will create one)
-            model_type: Type of model to use ('medclip' or 'biomedclip')
-            task_type: 'zeroshot', 'supervised', or 'prompt_tuning'
-            num_classes: Number of classes (for supervised)
-            class_names: List of class names (for zero-shot)
-            freeze_encoder: Whether to freeze encoder (for supervised)
-            ensemble: Whether to use prompt ensembling (for zero-shot)
-            **kwargs: Additional classifier-specific arguments
-            
-        Returns:
-            Classifier instance
-        """
-        # Create model if not provided
-        if model is None:
-            if model_type is None:
-                raise ValueError("Either 'model' or 'model_type' must be provided")
-            model = cls.create_model(model_type=model_type, **kwargs.pop('model_kwargs', {}))
-        else:
-            # Infer model type from model instance
-            if isinstance(model, MedCLIPModel):
-                model_type = 'medclip'
-            elif isinstance(model, BioMedCLIPModel):
-                model_type = 'biomedclip'
-            elif isinstance(model, ENTRepModel):
-                model_type = 'entrep'
-            else:
-                raise ValueError(f"Unknown model type: {type(model)}")
-        
-        # Validate task type
-        if model_type not in cls.CLASSIFIER_REGISTRY:
-            raise ValueError(f"No classifiers available for model type: {model_type}")
-            
-        classifier_types = cls.CLASSIFIER_REGISTRY[model_type]
-        
-        if task_type not in classifier_types:
-            raise ValueError(f"Task type '{task_type}' not available for {model_type}. Available: {list(classifier_types.keys())}")
-        
-        # Get classifier class
-        classifier_class = classifier_types[task_type]
-        
-        # Create classifier based on task type
-        if task_type == 'zeroshot':
-            if class_names is None:
-                raise ValueError("class_names required for zero-shot classification")
-                
-            if model_type == 'medclip':
-                classifier = classifier_class(
-                    medclip_model=model,
-                    ensemble=ensemble,
-                    **kwargs
-                )
-            elif model_type == 'biomedclip':
-                classifier = classifier_class(
-                    biomedclip_model=model,
-                    ensemble=ensemble,
-                    **kwargs
-                )
-            elif model_type == 'entrep':
-                classifier = classifier_class(
-                    entrep_model=model,
-                    num_classes=num_classes,
-                    ensemble=ensemble,
-                    **kwargs
-                )
-        else:
-            raise ValueError(f"Unknown task type: {task_type}")
-        
-        return classifier
-    
-    @classmethod
-    def create_zeroshot_classifier(
-        cls,
-        model_type: str = 'medclip',
-        class_names: List[str] = None,
-        templates: Optional[List[str]] = None,
-        ensemble: bool = True,
-        checkpoint: Optional[str] = None,
-        **kwargs
-    ) -> BaseClassifier:
-        """
-        Convenience method to create a zero-shot classifier
-        
-        Args:
-            model_type: 'medclip' or 'biomedclip'
-            class_names: List of class names
-            templates: Optional custom templates
-            ensemble: Whether to use prompt ensembling
-            checkpoint: Model checkpoint path
-            **kwargs: Additional arguments
-            
-        Returns:
-            Zero-shot classifier instance
-        """
-        # Create base model
-        model = cls.create_model(
-            model_type=model_type,
-            checkpoint=checkpoint,
-            **kwargs
-        )
-        
-        # Get default template if not provided
-        if templates is None:
-            templates = [DEFAULT_TEMPLATES.get(model_type, DEFAULT_TEMPLATES['general'])]
-        
-        # Create classifier
-        return cls.create_classifier(
-            model=model,
-            model_type=model_type,
-            task_type='zeroshot',
-            class_names=class_names,
-            ensemble=ensemble,
-            num_classes=len(class_names),
-            templates=templates,
-            **kwargs
-        )
-    
-    @classmethod
-    def create_supervised_classifier(
-        cls,
-        model_type: str = 'medclip',
-        num_classes: int = None,
-        task_mode: str = 'multiclass',
-        freeze_encoder: bool = True,
-        checkpoint: Optional[str] = None,
-        **kwargs
-    ) -> BaseClassifier:
-        """
-        Convenience method to create a supervised classifier
-        
-        Args:
-            model_type: 'medclip' or 'biomedclip'
-            num_classes: Number of output classes
-            task_mode: 'binary', 'multiclass', or 'multilabel'
-            freeze_encoder: Whether to freeze encoder weights
-            checkpoint: Model checkpoint path
-            **kwargs: Additional arguments
-            
-        Returns:
-            Supervised classifier instance
-        """
-        # Create base model
-        model = cls.create_model(
-            model_type=model_type,
-            checkpoint=checkpoint,
-            **kwargs.pop('model_kwargs', {})
-        )
-        
-        # Create classifier
-        return cls.create_classifier(
-            model=model,
-            model_type=model_type,
-            task_type='supervised',
-            num_classes=num_classes,
-            mode=task_mode,
-            freeze_encoder=freeze_encoder,
-            **kwargs
-        )
     
     @classmethod
     def get_available_models(cls) -> Dict[str, List[str]]:
@@ -439,7 +399,8 @@ def create_model(model_type: str = 'medclip', **kwargs):
 
 def create_entrep(
     text_encoder: str = 'clip',
-    vision_encoder: str = 'clip',
+    vision_encoder: str = 'dinov2',
+    checkpoint: Optional[str] = None,
     vision_checkpoint: Optional[str] = None,
     **kwargs
 ) -> BaseVisionLanguageModel:
@@ -449,30 +410,30 @@ def create_entrep(
     Args:
         text_encoder: 'clip' or 'none'
         vision_encoder: 'clip', 'endovit', or 'dinov2'
-        vision_checkpoint: Path to vision encoder checkpoint
+        checkpoint: Path to full model checkpoint (contains both text and vision)
+        vision_checkpoint: Path to vision encoder checkpoint only (deprecated, use checkpoint)
         **kwargs: Additional arguments
         
     Returns:
         ENTRep model instance
         
-    Note:
-        If vision_checkpoint is provided and text_encoder is 'none', 
-        creates a vision-only model using wrapper (DinoV2Model/EntVitModel)
-        to ensure checkpoint loads correctly (compatible with ENTRep/model_factory.py)
+    Examples:
+        >>> # Create ENTRep with full checkpoint
+        >>> model = create_entrep(
+        ...     checkpoint='checkpoints/entrep_best.pt',
+        ...     vision_encoder='dinov2'
+        ... )
+        
+        >>> # Create ENTRep without checkpoint
+        >>> model = create_entrep(
+        ...     text_encoder='clip',
+        ...     vision_encoder='dinov2'
+        ... )
     """
-    # Vision-only mode với checkpoint
-    if vision_checkpoint and text_encoder == 'none':
-        from .entrep import ENTRepModel
-        return ENTRepModel(
-            vision_encoder_type=vision_encoder,
-            vision_checkpoint=vision_checkpoint,
-            **kwargs
-        )
-    
-    # Full ENTRep model (text + vision)
     return ModelFactory.create_model(
         model_type='entrep',
         variant='base',
+        checkpoint=checkpoint,
         text_encoder_type=text_encoder,
         vision_encoder_type=vision_encoder,
         vision_checkpoint=vision_checkpoint,

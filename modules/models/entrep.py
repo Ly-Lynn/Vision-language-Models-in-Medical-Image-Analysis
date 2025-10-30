@@ -432,7 +432,7 @@ class ENTRepModel(nn.Module):
         dropout_rate: float = 0.3,
         freeze_backbone: bool = False,
         vision_checkpoint: Optional[str] = None,
-                 entrep_checkpoint: Optional[str] = None,
+                 checkpoint: Optional[str] = None,
         logit_scale_init_value: float = 0.07,
                  pretrained: bool = True):
         """
@@ -449,13 +449,13 @@ class ENTRepModel(nn.Module):
             dropout_rate: Dropout rate for text encoder
             freeze_backbone: Whether to freeze backbone
             vision_checkpoint: Path to vision encoder checkpoint (riêng)
-            entrep_checkpoint: Path to full ENTRep checkpoint (toàn bộ model - ưu tiên cao nhất)
+            checkpoint: Path to full ENTRep checkpoint (toàn bộ model - ưu tiên cao nhất)
             logit_scale_init_value: Initial value for logit scale
             pretrained: Whether to use pretrained weights
             
         Note:
             Checkpoint priority:
-            1. entrep_checkpoint: Load full (vision + text + logit_scale)
+            1. checkpoint: Load full (vision + text + logit_scale)
                 2. vision_checkpoint + text_checkpoint: load separately
                 3. No checkpoint: Init from pretrained or random
         """
@@ -467,13 +467,13 @@ class ENTRepModel(nn.Module):
         self.num_classes = num_classes
         
         # Create text encoder (optional)
-        # Không load text_checkpoint nếu có entrep_checkpoint (sẽ load sau)
+        # Không load text_checkpoint nếu có checkpoint (sẽ load sau)
         if text_encoder_type == 'clip':
             logger.info(f"🏗️ Creating CLIP text encoder...")
             self.text_model = CLIPTextEncoder(
                 feature_dim=feature_dim,
                 dropout_rate=dropout_rate,
-                ckp_path=text_checkpoint if not entrep_checkpoint else None,
+                ckp_path=text_checkpoint if not checkpoint else None,
                 pretrained=pretrained
             )
         elif text_encoder_type is None or text_encoder_type == 'none':
@@ -492,8 +492,8 @@ class ENTRepModel(nn.Module):
                 freeze_backbone=freeze_backbone
             )
             
-            # Load vision checkpoint riêng (chỉ khi KHÔNG có entrep_checkpoint)
-            if vision_checkpoint is not None and entrep_checkpoint is None:
+            # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
+            if vision_checkpoint is not None and checkpoint is None:
                 logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
                 checkpoint = torch.load(vision_checkpoint)
                 state_dict = checkpoint["model_state_dict"]
@@ -532,8 +532,8 @@ class ENTRepModel(nn.Module):
                 freeze_backbone=freeze_backbone
             )
             
-            # Load vision checkpoint riêng (chỉ khi KHÔNG có entrep_checkpoint)
-            if vision_checkpoint is not None and entrep_checkpoint is None:
+            # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
+            if vision_checkpoint is not None and checkpoint is None:
                 logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
                 checkpoint = torch.load(vision_checkpoint, map_location='cpu')
                 state_dict = checkpoint["model_state_dict"]
@@ -568,8 +568,8 @@ class ENTRepModel(nn.Module):
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
         
         # Load full ENTRep checkpoint nếu có (ưu tiên cao nhất)
-        if entrep_checkpoint is not None:
-            self._load_full_checkpoint(entrep_checkpoint)
+        if checkpoint is not None:
+            self._load_full_checkpoint(checkpoint)
         
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
