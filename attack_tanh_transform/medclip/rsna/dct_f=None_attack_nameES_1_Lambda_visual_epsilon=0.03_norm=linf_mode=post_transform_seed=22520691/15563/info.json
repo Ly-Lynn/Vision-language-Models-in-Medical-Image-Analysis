@@ -1,0 +1,6 @@
+{
+    "clean_pred": 1,
+    "adv_pred": 0,
+    "gt": 1,
+    "success_iterations": 165
+}

@@ -34,6 +34,11 @@ def main(args):
     
     with open(args.index_path, "r") as f:
         indxs = [int(line.strip()) for line in f.readlines()]
+
+    if not args.end_idx:
+        indxs = indxs[args.start_idx, :]
+    else:
+        indxs = indxs[args.start_idx, args.end_idx]
     # take 100 lớp đầu, take 100 lớp sau:
     # indxs_0 = indxs[:100]
     # indxs_1 = indxs[500:600]
@@ -200,6 +205,8 @@ def get_args():
     parser.add_argument("--mode", type=str, default="pre_transform",
                         choices=["pre_transform", "post_transform"],
                         help="Attack mode: before or after model transform")
+    parser.add_argument("--start_idx", type=int, default=0)
+    parser.add_argument("--end_idx", type=int, default=None)
 
 
     # Misc
