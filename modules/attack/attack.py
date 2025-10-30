@@ -58,7 +58,7 @@ class ES_1_Lambda(BaseAttack):
         num_evaluation = 1
         while num_evaluation < self.max_evaluation:
             noise = torch.randn((self.lam, C, H, W), device=self.device)
-            X = m + self.sigma * noise
+            X = m + sigma * noise
             X_delta = self.z_to_delta(X)
             X_delta = project_delta(X_delta, self.eps, self.norm)
 
