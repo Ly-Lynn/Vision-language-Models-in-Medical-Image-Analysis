@@ -174,10 +174,10 @@ class ES_1_Lambda_visual(BaseAttack):
                 f_m = f_best
                 l2_m = l2_best
                 sigma *= self.c_inc
-                sigma = min(self.eps, sigma)
+                # sigma = min(self.eps, sigma)
             else:
                 sigma *= self.c_dec       
-                sigma = max(1e-6, sigma)     
+                # sigma = max(1e-6, sigma)     
             
             history.append([f_m, l2_m])
             
@@ -189,7 +189,6 @@ class ES_1_Lambda_visual(BaseAttack):
                 delta_m = project_delta(delta_m, self.eps, self.norm)
                 num_evaluation += visual_evaluation
                 if success == False:
-
                     stop_num_evaluation = num_evaluation + self.additional_eval # chạy thêm 50 dòng nữa
                     success = True
                 
