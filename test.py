@@ -14,8 +14,8 @@ def _extract_label(dict_label):
             return i
         
 n_prompt = 5
-dataset_name = "rsna"
-model_type = 'medclip'
+dataset_name = "entrep"
+model_type = 'entrepclip'
 transform = MODEL_TRANSFORMS[model_type]
 batch_size = 256
 
