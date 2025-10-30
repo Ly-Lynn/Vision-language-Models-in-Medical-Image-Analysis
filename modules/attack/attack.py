@@ -188,8 +188,10 @@ class ES_1_Lambda_visual(BaseAttack):
                 delta_m = self.z_to_delta(m)
                 delta_m = project_delta(delta_m, self.eps, self.norm)
                 num_evaluation += visual_evaluation
-                stop_num_evaluation = num_evaluation + self.additional_eval # chạy thêm 50 dòng nữa
-                success = True
+                if success == False:
+
+                    stop_num_evaluation = num_evaluation + self.additional_eval # chạy thêm 50 dòng nữa
+                    success = True
                 
                 
                 
