@@ -80,7 +80,7 @@ class ES_1_Lambda(BaseAttack):
                 sigma *= self.c_dec            
                 # sigma = max(1e-6, sigma)     
             
-            print("Best loss: ", f_m, " l2: ", l2_m)
+            print(f"[{num_evaluation} - attack phase] Best loss: ", f_m, " L2: ", l2_m )
 
             history.append([float(f_m), float(l2_m)])
             if self.is_success(f_m):
@@ -170,7 +170,7 @@ class ES_1_Lambda_visual(BaseAttack):
 
             if f_best < f_m:
                 m = x_best.clone()
-                delta_m = x_delta_best
+                delta_m = x_delta_best.clone()
                 f_m = f_best
                 l2_m = l2_best
                 sigma *= self.c_inc
@@ -181,7 +181,7 @@ class ES_1_Lambda_visual(BaseAttack):
             
             history.append([f_m, l2_m])
             
-            print("Best loss: ", f_m, " L2: ", l2_m )
+            print(f"[{num_evaluation} - attack phase] Best loss: ", f_m, " L2: ", l2_m )
             
             if self.is_success(f_m): # neus lần đầu success
                 m, m_delta, f_m, visual_evaluation, l2_m = self.optimize_visual(m, delta_m, f_m, l2_m)
@@ -193,14 +193,6 @@ class ES_1_Lambda_visual(BaseAttack):
                     success = True
                 
                 
-                
-                
-                
-         
-                
-
-            
-
         if self.evaluator.decoder:
             delta_m = self.evaluator.decoder(delta_m, self.evaluator.img_W, self.evaluator.img_H)
             delta_m = project_delta(delta_m, self.eps, self.norm)
