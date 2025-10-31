@@ -570,11 +570,32 @@ class ENTRepModel(nn.Module):
         # Load full ENTRep checkpoint nếu có (ưu tiên cao nhất)
         if checkpoint is not None:
             self._load_full_checkpoint(checkpoint)
-        
+        else:
+            ckp = self.download_checkpoint()
+            self._load_full_checkpoint(ckp)
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
-    
+    def download_checkpoint(self):
+        import gdown
+        import os
+        import zipfile
+        if gdown is None:
+                logger.error("gdown not installed. Please install with: pip install gdown")
+                return None
+        url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
+        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.zip")
+        logger.info("Downloading ENTREP checkpoint from Google Drive...")
+        
+        try:
+            gdown.download(id=url_id, output=entrep_output, quiet=False)
+            with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
+                zip_ref.extractall(self.data_root)
+            os.remove(entrep_output)    
+            return entrep_output
+        except Exception as e:
+            logger.error(f"Failed to download ENTREP checkpoint: {e}")
+            return None
     def _load_full_checkpoint(self, checkpoint_path: str):
         """
         Load checkpoint cho toàn bộ ENTRep model (vision + text + logit_scale)

@@ -101,7 +101,7 @@ class ENTREPDataset(BaseContrastiveDataset):
                 logger.error("gdown not installed. Please install with: pip install gdown")
                 return False
                 
-            url_id = "1r2mIaytuvHQc5D77BAuIfkLeW9jGXjed"
+            url_id = "12jIUN2_CPD_gaIBpU45G5oHfjy0NGBkx"
             entrep_output = os.path.join(self.data_root, "entrep_dataset.zip")
             logger.info("Downloading ENTREP dataset from Google Drive...")
             
