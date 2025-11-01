@@ -576,6 +576,7 @@ class ENTRepModel(nn.Module):
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
+<<<<<<< HEAD
     def download_checkpoint(self):
         import gdown
         import os
@@ -596,6 +597,13 @@ class ENTRepModel(nn.Module):
         except Exception as e:
             logger.error(f"Failed to download ENTREP checkpoint: {e}")
             return None
+=======
+    
+    
+        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
+
+    
+>>>>>>> 1014345 (fix csv join entrep)
     def _load_full_checkpoint(self, checkpoint_path: str):
         """
         Load checkpoint cho toàn bộ ENTRep model (vision + text + logit_scale)

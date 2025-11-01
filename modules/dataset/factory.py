@@ -29,7 +29,8 @@ class DatasetFactory:
             'classification': RSNADataset
         },
         'entrep': {
-            'contrastive': ENTREPDataset
+            'contrastive': ENTREPDataset,
+            'classification': ENTREPDataset,
         }
     }
     

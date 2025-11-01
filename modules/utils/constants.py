@@ -220,6 +220,12 @@ SIZE_TRANSFORM = {
             # ),
         ]
     ),
+    'entrep': transforms.Compose(
+        [
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        ]
+    )
 }
 TENSOR_NORMALIZE_TRANSFORM = {
     'medclip': transforms.Compose(
@@ -242,9 +248,14 @@ TENSOR_NORMALIZE_TRANSFORM = {
             ),
         ]
     ),
+    'entrep': transforms.Compose(
+        [
+            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+        ]
+    )
 }
 
 
 # for attack
-DATA_ROOT = '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
+DATA_ROOT = './local_data'
 

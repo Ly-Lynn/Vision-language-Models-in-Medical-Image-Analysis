@@ -29,6 +29,11 @@ def main(args):
         transform=None
     )
     
+    # data[i]
+    # img, label_dict = dataset[index]
+    
+    
+    
     size_transform = SIZE_TRANSFORM[args.model_name]
 
     
