@@ -106,6 +106,13 @@ RSNA_CLASS_PROMPTS = {
     }
 }
 
+ENTREP_CLASS_PROMPTS = {
+    'vocal-throat': ['vocal throat endoscopy', 'vocal cord endoscopy', 'laryngoscopy'],
+    'nose': ['nose endoscopy', 'nasal endoscopy', 'endoscopic image of nose'],
+    'ear': ['ear endoscopy', 'otoscopy', 'endoscopic image of ear'],
+    'throat': ['throat endoscopy', 'pharyngoscopy', 'endoscopic image of throat']
+}
+
 # Model weights
 WEIGHTS_NAME = 'pytorch_model.bin'
 

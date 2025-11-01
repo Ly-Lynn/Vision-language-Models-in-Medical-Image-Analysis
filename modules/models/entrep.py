@@ -46,8 +46,11 @@ class CLIPTextEncoder(TextEncoder):
                                              trust_remote_code=True)
         else:
             from transformers import AutoConfig
+            from transformers import AutoTokenizer
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
             self.text_model = AutoModelForMaskedLM.from_config(config)
+            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+
             
         # Layer normalization and dropout
         self.ln = nn.LayerNorm(self.get_feature_dim())
@@ -664,15 +667,32 @@ class ENTRepModel(nn.Module):
         if 'optimizer_state_dict' in checkpoint:
             logger.info(f"   ✅ Optimizer state available (for resume training)")
     
-    def encode_text(self, input_ids=None, attention_mask=None):
-        """Encode text inputs"""
-        if self.text_model is None:
-            raise NotImplementedError("Text encoding not supported (text_model is None)")
+    # def encode_text(self, input_ids=None, attention_mask=None):
+    #     """Encode text inputs"""
+    #     if self.text_model is None:
+    #         raise NotImplementedError("Text encoding not supported (text_model is None)")
         
+    #     # Get text embeddings
+    #     text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
+    #     # Already normalized in CLIPTextEncoder
+    #     return text_embeds
+    
+    def encode_text(self, texts):
+        text_inputs = tokenizer(
+            texts, 
+            padding=True, 
+            truncation=True, 
+            return_tensors='pt'
+        )
+        text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
+
+
+      
         # Get text embeddings
-        text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
-        # Already normalized in CLIPTextEncoder
-        return text_embeds
+        text_embeds = self.text_model(text_inputs['input_ids'], text_inputs['attention_mask'], return_features=False)
+        text_features = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+
+        return text_features
     
     def encode_image(self, pixel_values):
         """Encode image inputs"""
