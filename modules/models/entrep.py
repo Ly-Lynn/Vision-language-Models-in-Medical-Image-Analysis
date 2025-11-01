@@ -31,6 +31,7 @@ class CLIPTextEncoder(TextEncoder):
         
         if pretrained:
             try:
+                print(model_name)
                 # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
                 self.text_model = AutoModelForMaskedLM.from_pretrained(model_name, 
                                              use_safetensors=True, 
