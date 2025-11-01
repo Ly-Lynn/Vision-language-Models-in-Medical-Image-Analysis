@@ -19,7 +19,7 @@ model_type = 'entrep'
 transform = MODEL_TRANSFORMS[model_type]
 batch_size = 256
 
-DATA_ROOT = '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_data'
+DATA_ROOT = 'local_data'
 dataset = DatasetFactory.create_dataset(
     dataset_name=dataset_name,
     model_type=model_type,
@@ -27,6 +27,7 @@ dataset = DatasetFactory.create_dataset(
     transform=None
 )
 print(dataset[0])
+print(len(dataset))
 raise
 
 
