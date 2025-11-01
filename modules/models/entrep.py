@@ -576,7 +576,6 @@ class ENTRepModel(nn.Module):
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
-<<<<<<< HEAD
     def download_checkpoint(self):
         import gdown
         import os

@@ -94,6 +94,7 @@ class ENTREPDataset(BaseContrastiveDataset):
         train_df.to_csv(os.path.join(self.data_root, 'entrep', 'entrep-train-meta.csv'), index=True)
         test_df.to_csv(os.path.join(self.data_root, 'entrep',  'entrep-test-meta.csv'), index=True)
         val_df.to_csv(os.path.join(self.data_root, 'entrep',  'entrep-val-meta.csv'), index=True)
+    
     def _load_data(self) -> pd.DataFrame:
         """Load ENTREP data from CSV file"""
         def download_entrep_dataset():    
