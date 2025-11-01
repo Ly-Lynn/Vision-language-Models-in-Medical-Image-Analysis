@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 class ENTREPDataset(BaseContrastiveDataset):
     def __init__(
         self,
-        data_root: str = 'local_data',
+        data_root: str = 'local_data/entrep',
         split: str = 'train',
         model_type: str = 'entrep',
         transform: Optional[transforms.Compose] = None,
@@ -117,7 +117,7 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
         
         os.makedirs(self.data_root, exist_ok=True)
-        entrep_data_path = os.path.join(self.data_root, 'entrep')
+        entrep_data_path = self.data_root
         
         # Check if required files exist
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
