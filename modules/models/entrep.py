@@ -471,6 +471,7 @@ class ENTRepModel(nn.Module):
         self.feature_dim = feature_dim
         self.num_classes = num_classes
         self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
+        self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
         
         # Create text encoder (optional)
@@ -539,7 +540,6 @@ class ENTRepModel(nn.Module):
                 freeze_backbone=freeze_backbone
             )
             
-            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
             # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
             if vision_checkpoint is not None and checkpoint is None:
