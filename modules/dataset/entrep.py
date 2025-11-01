@@ -212,7 +212,7 @@ class ENTREPDataset(BaseContrastiveDataset):
                 text = "Endoscopic image"
             
         # return img_tensor, text
-        return img, lables
+        return img, labels
     
     def get_class_prompts(self) -> Dict[str, List[str]]:
         """Return class prompts for zero-shot classification"""
