@@ -678,7 +678,7 @@ class ENTRepModel(nn.Module):
     #     return text_embeds
     
     def encode_text(self, texts):
-        text_inputs = tokenizer(
+        text_inputs = self.tokenizer(
             texts, 
             padding=True, 
             truncation=True, 
