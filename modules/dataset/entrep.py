@@ -173,8 +173,15 @@ class ENTREPDataset(BaseContrastiveDataset):
         
         # Load image
         img_path = row['image_path']
+
         # img = self._load_image(img_path)
         img = Image.open(img_path)
+        labels = {
+            'vocal-throat': row['vocal-throat'],
+            'nose': row['nose'],
+            'ear': row['ear'],
+            'throat': row['throat'],
+        }
         
         # Apply transforms
         # if self.transform:
@@ -205,13 +212,13 @@ class ENTREPDataset(BaseContrastiveDataset):
                 text = "Endoscopic image"
             
         # return img_tensor, text
-        return img, text
+        return img, lables
     
     def get_class_prompts(self) -> Dict[str, List[str]]:
         """Return class prompts for zero-shot classification"""
         return {
-            'nose': ['nose endoscopy', 'nasal endoscopy', 'endoscopic image of nose'],
             'vocal-throat': ['vocal throat endoscopy', 'vocal cord endoscopy', 'laryngoscopy'],
+            'nose': ['nose endoscopy', 'nasal endoscopy', 'endoscopic image of nose'],
             'ear': ['ear endoscopy', 'otoscopy', 'endoscopic image of ear'],
             'throat': ['throat endoscopy', 'pharyngoscopy', 'endoscopic image of throat']
         }
