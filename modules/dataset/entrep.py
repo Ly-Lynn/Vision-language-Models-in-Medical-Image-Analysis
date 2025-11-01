@@ -123,6 +123,7 @@ class ENTREPDataset(BaseContrastiveDataset):
         # input()
         
         # Check if required files exist
+        data_csv_path = os.path.join(entrep_data_path, "entrep_dataset.csv")
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
         test_csv_path = os.path.join(entrep_data_path, "entrep-test-meta.csv")
         val_csv_path = os.path.join(entrep_data_path, "entrep-val-meta.csv")
@@ -132,15 +133,15 @@ class ENTREPDataset(BaseContrastiveDataset):
                 logger.warning("Failed to download ENTREP data")
         
         # Load appropriate split
-        if self.split == 'train':
-            csv_path = train_csv_path
-        elif self.split == 'test':
-            csv_path = test_csv_path
-        elif self.split == 'val':
-            csv_path = val_csv_path
-        else:
-            raise ValueError(f"Invalid split: {self.split}")
-            
+        # if self.split == 'train':
+        #     csv_path = train_csv_path
+        # elif self.split == 'test':
+        #     csv_path = test_csv_path
+        # elif self.split == 'val':
+        #     csv_path = val_csv_path
+        # else:
+        #     raise ValueError(f"Invalid split: {self.split}")
+        csv_path = data_csv_path    
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"Data file not found: {csv_path}")
             
