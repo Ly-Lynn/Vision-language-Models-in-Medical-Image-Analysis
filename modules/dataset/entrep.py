@@ -50,7 +50,7 @@ class ENTREPDataset(BaseContrastiveDataset):
         for index, row in df.iterrows():
             row['image_path'] = os.path.join(self.data_root, 'images', row['image_path'])
             df.loc[index, 'image_path'] = row['image_path']
-        df.to_csv(os.path.join(self.data_root, 'entrep-data.csv'), index=False)
+        df.to_csv(os.path.join(self.data_root, 'entrep', 'entrep-data.csv'), index=False)
 
         nose_df = df[df['nose'] == 1]
         nose_df = nose_df.sample(frac=1, random_state=RANDOM_STATE)
@@ -117,7 +117,7 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
         
         os.makedirs(self.data_root, exist_ok=True)
-        entrep_data_path = os.path.join(self.data_root, 'entrep')
+        entrep_data_path = self.data_root
         
         # Check if required files exist
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
