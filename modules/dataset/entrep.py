@@ -118,8 +118,8 @@ class ENTREPDataset(BaseContrastiveDataset):
         
         os.makedirs(self.data_root, exist_ok=True)
         entrep_data_path = os.path.join(self.data_root, 'entrep')
-        print("Entrep data path: ", entrep_data_path)
-        input()
+        # print("Entrep data path: ", entrep_data_path)
+        # input()
         
         # Check if required files exist
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
@@ -161,7 +161,7 @@ class ENTREPDataset(BaseContrastiveDataset):
     def __len__(self) -> int:
         return len(self.df)
     
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, str]:
+    def __getitem__(self, index: int):
         """
         Return image and text for contrastive learning
         
@@ -173,17 +173,18 @@ class ENTREPDataset(BaseContrastiveDataset):
         
         # Load image
         img_path = row['image_path']
-        img = self._load_image(img_path)
+        # img = self._load_image(img_path)
+        img = Image.open(img_path)
         
         # Apply transforms
-        if self.transform:
-            img_tensor = self.transform(img)
-        else:
-            img_tensor = transforms.ToTensor()(img)
+        # if self.transform:
+        #     img_tensor = self.transform(img)
+        # else:
+        #     img_tensor = transforms.ToTensor()(img)
             
-        # Add channel dimension if needed
-        if img_tensor.dim() == 2:
-            img_tensor = img_tensor.unsqueeze(0)
+        # # Add channel dimension if needed
+        # if img_tensor.dim() == 2:
+        #     img_tensor = img_tensor.unsqueeze(0)
             
         # Get text description
         # Ưu tiên sử dụng description từ CSV nếu có
@@ -203,7 +204,8 @@ class ENTREPDataset(BaseContrastiveDataset):
             else:
                 text = "Endoscopic image"
             
-        return img_tensor, text
+        # return img_tensor, text
+        return img, text
     
     def get_class_prompts(self) -> Dict[str, List[str]]:
         """Return class prompts for zero-shot classification"""

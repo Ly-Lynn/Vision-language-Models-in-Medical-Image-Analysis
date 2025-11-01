@@ -88,7 +88,6 @@ class DatasetFactory:
             raise ValueError(f"Dataset type '{dataset_type}' not available for {dataset_name}. Available: {list(dataset_classes.keys())}")
             
         # Get dataset class
-        print(dataset_type)
         dataset_class = dataset_classes[dataset_type]
         
         # Create dataset
