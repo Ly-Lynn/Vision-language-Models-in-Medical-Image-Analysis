@@ -40,7 +40,7 @@ class CLIPTextEncoder(TextEncoder):
             except:
                 # Fallback if safetensors fails
                 # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                self.text_model = AutoModelForMaskedLM.from_pretrained("model_name", 
+                self.text_model = AutoModelForMaskedLM.from_pretrained(model_name, 
                                              use_safetensors=False, 
                                              local_files_only=True,
                                              trust_remote_code=True)
