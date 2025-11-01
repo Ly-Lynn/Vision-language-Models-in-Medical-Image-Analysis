@@ -218,7 +218,7 @@ SIZE_TRANSFORM = {
             #     mean=BIOMEDCLIP_MEAN,
             #     std=BIOMEDCLIP_STD
             # ),
-        ]
+        ],
     'entrep': transforms.Compose(
         [
             transforms.Lambda(lambda x: x.convert("RGB")),
