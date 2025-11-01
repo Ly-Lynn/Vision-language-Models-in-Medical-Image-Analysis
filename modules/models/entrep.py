@@ -588,15 +588,11 @@ class ENTRepModel(nn.Module):
                 return None
         url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
         os.makedirs('checkpoints', exist_ok=True)
-        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.zip")
+        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.pth")
         logger.info("Downloading ENTREP checkpoint from Google Drive...")
         
         try:
             gdown.download(id=url_id, output=entrep_output, quiet=False)
-            with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
-                zip_ref.extractall(self.data_root)
-            os.remove(entrep_output)    
-            return entrep_output
         except Exception as e:
             logger.error(f"Failed to download ENTREP checkpoint: {e}")
             return None
