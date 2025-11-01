@@ -5,9 +5,9 @@ from typing import Optional
 from pathlib import Path
 from transformers import AutoModelForMaskedLM
 from functools import partial
-
 # Import base classes
 from .base import TextEncoder, VisionEncoder
+from ..utils import constants
 
 __all__ = [
     'CLIPTextEncoder',
@@ -607,7 +607,7 @@ class ENTRepModel(nn.Module):
         Tự động filter ra classifier keys nếu num_classes khác để tránh size mismatch
         """
         logger.info(f"📥 Loading full ENTRep checkpoint: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path)
         
         if 'model_state_dict' in checkpoint:
             state_dict = checkpoint['model_state_dict']
