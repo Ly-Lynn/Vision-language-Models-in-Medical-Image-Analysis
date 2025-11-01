@@ -468,6 +468,8 @@ class ENTRepModel(nn.Module):
         self.text_encoder_type = text_encoder_type
         self.feature_dim = feature_dim
         self.num_classes = num_classes
+        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
+
         
         # Create text encoder (optional)
         # Không load text_checkpoint nếu có checkpoint (sẽ load sau)
@@ -593,12 +595,12 @@ class ENTRepModel(nn.Module):
         
         try:
             gdown.download(id=url_id, output=entrep_output, quiet=False)
+            return "checkpoints/entrep_checkpoint.pth"
         except Exception as e:
             logger.error(f"Failed to download ENTREP checkpoint: {e}")
             return None
     
     
-        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
 
     
     def _load_full_checkpoint(self, checkpoint_path: str):
