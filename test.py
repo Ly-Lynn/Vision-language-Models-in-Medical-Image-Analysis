@@ -15,7 +15,7 @@ def _extract_label(dict_label):
         
 n_prompt = 5
 dataset_name = "entrep"
-model_type = 'entrepclip'
+model_type = 'entrep'
 transform = MODEL_TRANSFORMS[model_type]
 batch_size = 256
 
@@ -26,6 +26,8 @@ dataset = DatasetFactory.create_dataset(
     data_root=DATA_ROOT,
     transform=None
 )
+print(dataset[0])
+raise
 
 
 model = ModelFactory.create_model(

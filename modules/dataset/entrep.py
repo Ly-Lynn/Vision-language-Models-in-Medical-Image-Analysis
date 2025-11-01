@@ -123,7 +123,7 @@ class ENTREPDataset(BaseContrastiveDataset):
         # input()
         
         # Check if required files exist
-        data_csv_path = os.path.join(entrep_data_path, "entrep_dataset.csv")
+        data_csv_path = os.path.join(entrep_data_path, "entrep-data.csv")
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
         test_csv_path = os.path.join(entrep_data_path, "entrep-test-meta.csv")
         val_csv_path = os.path.join(entrep_data_path, "entrep-val-meta.csv")
@@ -179,10 +179,10 @@ class ENTREPDataset(BaseContrastiveDataset):
         # img = self._load_image(img_path)
         img = Image.open(img_path)
         labels = {
-            'vocal-throat': row['vocal-throat'],
-            'nose': row['nose'],
-            'ear': row['ear'],
-            'throat': row['throat'],
+            'vocal-throat': int(row['vocal-throat']),
+            'nose': int(row['nose']),
+            'ear': int(row['ear']),
+            'throat': int(row['throat']),
         }
         
         # Apply transforms
