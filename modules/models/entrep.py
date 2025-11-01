@@ -49,7 +49,6 @@ class CLIPTextEncoder(TextEncoder):
             from transformers import AutoTokenizer
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
             self.text_model = AutoModelForMaskedLM.from_config(config)
-            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
             
         # Layer normalization and dropout
@@ -540,6 +539,8 @@ class ENTRepModel(nn.Module):
                 freeze_backbone=freeze_backbone
             )
             
+            self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+
             # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
             if vision_checkpoint is not None and checkpoint is None:
                 logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
@@ -581,6 +582,7 @@ class ENTRepModel(nn.Module):
         else:
             ckp = self.download_checkpoint()
             self._load_full_checkpoint(ckp)
+            
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
