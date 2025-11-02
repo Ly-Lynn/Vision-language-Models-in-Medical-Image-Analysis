@@ -686,7 +686,7 @@ class ENTRepModel(nn.Module):
             truncation=True, 
             return_tensors='pt'
         )
-        text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
+        text_inputs = {k: v.cuda() for k, v in text_inputs.items()}
 
 
       
