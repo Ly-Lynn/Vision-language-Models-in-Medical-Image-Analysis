@@ -8,6 +8,7 @@ from functools import partial
 # Import base classes
 from .base import TextEncoder, VisionEncoder
 from ..utils import constants
+from transformers import AutoTokenizer
 
 __all__ = [
     'CLIPTextEncoder',
@@ -46,7 +47,6 @@ class CLIPTextEncoder(TextEncoder):
                                              trust_remote_code=True)
         else:
             from transformers import AutoConfig
-            from transformers import AutoTokenizer
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
             self.text_model = AutoModelForMaskedLM.from_config(config)
 
