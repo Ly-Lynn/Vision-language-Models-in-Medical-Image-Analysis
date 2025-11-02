@@ -5,10 +5,9 @@ from typing import Optional
 from pathlib import Path
 from transformers import AutoModelForMaskedLM
 from functools import partial
+
 # Import base classes
 from .base import TextEncoder, VisionEncoder
-from ..utils import constants
-from transformers import AutoTokenizer
 
 __all__ = [
     'CLIPTextEncoder',
@@ -32,24 +31,27 @@ class CLIPTextEncoder(TextEncoder):
         
         if pretrained:
             try:
-                print(model_name)
-                # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                self.text_model = AutoModelForMaskedLM.from_pretrained(model_name, 
+                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
                                              use_safetensors=True, 
                                             #  local_files_only=True,
-                                             trust_remote_code=True)
+                                            #  trust_remote_code=True
+                                             )
             except:
                 # Fallback if safetensors fails
                 # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                self.text_model = AutoModelForMaskedLM.from_pretrained(model_name, 
-                                             use_safetensors=False, 
+                #                              use_safetensors=False, 
+                #                             #  local_files_only=True,
+                #                             #  trust_remote_code=True
+                #                              )
+                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
+                                             use_safetensors=True, 
                                             #  local_files_only=True,
-                                             trust_remote_code=True)
+                                            #  trust_remote_code=True
+                                             )
         else:
             from transformers import AutoConfig
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
             self.text_model = AutoModelForMaskedLM.from_config(config)
-
             
         # Layer normalization and dropout
         self.ln = nn.LayerNorm(self.get_feature_dim())
@@ -470,9 +472,6 @@ class ENTRepModel(nn.Module):
         self.text_encoder_type = text_encoder_type
         self.feature_dim = feature_dim
         self.num_classes = num_classes
-        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
-        self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-
         
         # Create text encoder (optional)
         # Không load text_checkpoint nếu có checkpoint (sẽ load sau)
@@ -540,7 +539,6 @@ class ENTRepModel(nn.Module):
                 freeze_backbone=freeze_backbone
             )
             
-
             # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
             if vision_checkpoint is not None and checkpoint is None:
                 logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
@@ -582,7 +580,6 @@ class ENTRepModel(nn.Module):
         else:
             ckp = self.download_checkpoint()
             self._load_full_checkpoint(ckp)
-            
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
@@ -593,28 +590,27 @@ class ENTRepModel(nn.Module):
         if gdown is None:
                 logger.error("gdown not installed. Please install with: pip install gdown")
                 return None
+        # url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
         url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
-        os.makedirs('checkpoints', exist_ok=True)
-        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.pth")
+        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.zip")
         logger.info("Downloading ENTREP checkpoint from Google Drive...")
         
         try:
             gdown.download(id=url_id, output=entrep_output, quiet=False)
-            return "checkpoints/entrep_checkpoint.pth"
+            with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
+                zip_ref.extractall(self.data_root)
+            os.remove(entrep_output)    
+            return entrep_output
         except Exception as e:
             logger.error(f"Failed to download ENTREP checkpoint: {e}")
             return None
-    
-    
-
-    
     def _load_full_checkpoint(self, checkpoint_path: str):
         """
         Load checkpoint cho toàn bộ ENTRep model (vision + text + logit_scale)
         Tự động filter ra classifier keys nếu num_classes khác để tránh size mismatch
         """
         logger.info(f"📥 Loading full ENTRep checkpoint: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
         if 'model_state_dict' in checkpoint:
             state_dict = checkpoint['model_state_dict']
@@ -669,32 +665,15 @@ class ENTRepModel(nn.Module):
         if 'optimizer_state_dict' in checkpoint:
             logger.info(f"   ✅ Optimizer state available (for resume training)")
     
-    # def encode_text(self, input_ids=None, attention_mask=None):
-    #     """Encode text inputs"""
-    #     if self.text_model is None:
-    #         raise NotImplementedError("Text encoding not supported (text_model is None)")
+    def encode_text(self, input_ids=None, attention_mask=None):
+        """Encode text inputs"""
+        if self.text_model is None:
+            raise NotImplementedError("Text encoding not supported (text_model is None)")
         
-    #     # Get text embeddings
-    #     text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
-    #     # Already normalized in CLIPTextEncoder
-    #     return text_embeds
-    
-    def encode_text(self, texts):
-        text_inputs = self.tokenizer(
-            texts, 
-            padding=True, 
-            truncation=True, 
-            return_tensors='pt'
-        )
-        text_inputs = {k: v.cuda() for k, v in text_inputs.items()}
-
-
-      
         # Get text embeddings
-        text_embeds = self.text_model(text_inputs['input_ids'], text_inputs['attention_mask'], return_features=False)
-        text_features = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
-
-        return text_features
+        text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
+        # Already normalized in CLIPTextEncoder
+        return text_embeds
     
     def encode_image(self, pixel_values):
         """Encode image inputs"""

@@ -50,9 +50,9 @@ def load_model_from_checkpoint(checkpoint_path: str, config_path: str = None):
         model_type=model_type,
         checkpoint=checkpoint_path,
         pretrained=False,
-        **{k: v for k, v in model_config.items() if k != 'model_type'}
+        **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
     )
-    
+    # raise
     return model, config
 
 
@@ -159,7 +159,7 @@ def evaluate_single_image(model, image_path, class_names, device, transform=None
 
 def main():
     parser = argparse.ArgumentParser(description='Simple ENTRep evaluation')
-    parser.add_argument('--checkpoint', type=str, required=True, help='Checkpoint path')
+    parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint path')
     parser.add_argument('--config', type=str, default='configs/entrep_contrastive.yaml', help='Config path')
     parser.add_argument('--test_csv', type=str, default='local_data/entrep/entrep-test-meta.csv', help='Test CSV path')
     parser.add_argument('--output', type=str, default='evaluation_results.json', help='Output file')

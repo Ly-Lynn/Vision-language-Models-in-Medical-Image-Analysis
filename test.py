@@ -1,5 +1,5 @@
 from modules.dataset.factory import DatasetFactory
-from modules.utils.constants import MODEL_TRANSFORMS, DEFAULT_TEMPLATES, RSNA_CLASS_PROMPTS, RSNA_CLASS_PROMPTS 
+from modules.utils.constants import MODEL_TRANSFORMS, DEFAULT_TEMPLATES, RSNA_CLASS_PROMPTS, RSNA_CLASS_PROMPTS, ENTREP_CLASS_PROMPTS, ENTREP_TASKS 
 from modules.models.factory import ModelFactory, create_medclip, create_biomedclip, create_entrep
 from modules.evaluator import ZeroShotEvaluator, TextToImageRetrievalEvaluator
 from modules.utils.helpers import generate_rsna_class_prompts, generate_covid_class_prompts
@@ -7,7 +7,6 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import json
-
 def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
         if is_gt == 1:
@@ -17,7 +16,7 @@ n_prompt = 5
 dataset_name = "entrep"
 model_type = 'entrep'
 transform = MODEL_TRANSFORMS[model_type]
-batch_size = 256
+batch_size = 32
 
 DATA_ROOT = 'local_data'
 dataset = DatasetFactory.create_dataset(
@@ -26,9 +25,9 @@ dataset = DatasetFactory.create_dataset(
     data_root=DATA_ROOT,
     transform=None
 )
-print(dataset[0])
+# print(dataset[0])k
 print(len(dataset))
-raise
+# raise
 
 
 model = ModelFactory.create_model(
@@ -36,14 +35,20 @@ model = ModelFactory.create_model(
     variant='base',
     pretrained=True 
 )
+model.eval()
 
-class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
-class_features = []
-for class_name, item in class_prompts.items():
-    text_feats = model.encode_text(item)
-    mean_feats = text_feats.mean(dim=0)
-    class_features.append(mean_feats) 
-class_features = torch.stack(class_features) #  NUM_ClASS x D
+# class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
+# class_prompts = ENTREP_CLASS_PROMPTS
+# class_features = []
+# for class_name, item in class_prompts.items():
+#     text_feats = model.encode_text(item)
+#     mean_feats = text_feats.mean(dim=0)
+#     class_features.append(mean_feats) 
+# class_features = torch.stack(class_features) #  NUM_ClASS x D
+
+class_prompts = ENTREP_TASKS
+print("class_prompt: ", class_prompts)
+class_features = model.encode_text(class_prompts)
 
 all_preds = []
 all_labels = []
@@ -62,7 +67,8 @@ with torch.no_grad():
             batch_lbl_indices.append(_extract_label(label_dict))
 
 
-
+        # print(batch_imgs)
+        # print(batch_lbl_indices)
         batch_imgs = torch.stack(batch_imgs, dim=0).cuda()  # (B, C, H, W)
         batch_lbl_indices = torch.tensor(batch_lbl_indices, dtype=torch.long)
 

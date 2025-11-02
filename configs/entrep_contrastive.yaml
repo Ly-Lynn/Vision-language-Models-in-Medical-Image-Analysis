@@ -22,7 +22,7 @@ model:
   # Dùng khi resume training hoặc fine-tune toàn bộ model đã train
   # entrep_checkpoint: '/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/checkpoints/entrep_20251028_172424/checkpoint_best.pt'
   # entrep_checkpoint: 'checkpoints/entrep_full_epoch50.pth'
-  entrep_checkpoint: null
+  checkpoint: null
   # Option 2: Vision encoder checkpoint riêng (từ ENTRep/model_factory.py)
   # Dùng khi transfer learning từ pretrained vision encoder
   # IGNORED nếu entrep_checkpoint được set
