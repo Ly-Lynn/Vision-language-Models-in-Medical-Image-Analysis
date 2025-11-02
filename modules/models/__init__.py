@@ -29,8 +29,7 @@ from .medclip import (
 # BioMedCLIP models
 from .biomedclip import (
     BioMedCLIPModel,
-    BioMedCLIPClassifier,
-    BioMedCLIPFeatureExtractor
+    BioMedCLIPClassifier
 )
 
 # ENTRep models

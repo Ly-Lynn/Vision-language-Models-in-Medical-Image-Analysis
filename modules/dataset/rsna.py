@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import torch
 from transformers import AutoTokenizer
-from open_clip import get_tokenizer
 
 import gdown
 
@@ -132,7 +131,6 @@ class RSNADataset(BaseClassificationDataset):
         return RSNA_CLASS_PROMPTS
            
 
-
 class RSNAZeroShotCollator(BaseCollator):
     """
     Collator cho RSNA zero-shot classification
@@ -195,13 +193,12 @@ class RSNAZeroShotCollator(BaseCollator):
                 prompt_inputs[class_name] = text_inputs
                 
         elif self.model_type == 'biomedclip':
-            tokenizer = get_tokenizer(BIOMEDCLIP_MODEL)
-            
+            # BioMedCLIP model đã có tokenizer sẵn, không cần tokenize ở đây
+            # Truyền text strings để model tự tokenize
             prompt_inputs = {}
             for class_name, prompts in processed_prompts.items():
                 templated_prompts = [self.template + prompt for prompt in prompts]
-                text_tokens = tokenizer(templated_prompts, context_length=256)
-                prompt_inputs[class_name] = text_tokens
+                prompt_inputs[class_name] = templated_prompts
                 
         return prompt_inputs
         
@@ -233,7 +230,7 @@ def create_rsna_dataloader(
     data_root: str = 'local_data',
     split: str = 'test',
     model_type: str = 'medclip',
-    task_type: str = 'zeroshot',  # 'zeroshot' hoặc 'supervised'
+    task_type: str = 'zeroshot',  # 'zeroshot'
     batch_size: int = 16,
     shuffle: bool = False,
     num_workers: int = 0,
@@ -275,8 +272,6 @@ def create_rsna_dataloader(
             cls_prompts=cls_prompts,
             template=template
         )
-    # elif task_type == 'supervised':
-    #     collator = RSNASupervisedCollator(model_type=model_type)
     else:
         raise ValueError(f"Unknown task_type: {task_type}")
         

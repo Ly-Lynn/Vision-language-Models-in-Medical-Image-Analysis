@@ -20,8 +20,7 @@ class BioMedCLIPModel(VisionLanguageModel):
     def __init__(
         self,
         model_name: str = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
-        context_length: int = 256,
-        checkpoint: Optional[str] = None
+        context_length: int = 256
     ):
         """
         Initialize BioMedCLIP model.
@@ -45,10 +44,6 @@ class BioMedCLIPModel(VisionLanguageModel):
         
         # Move model to device
         self.model = self.model.to(self.device)
-        
-        # Load checkpoint if provided
-        if checkpoint is not None:
-            self.load_checkpoint(checkpoint)
         
         # Set model to eval mode by default
         self.model.eval()
@@ -256,12 +251,14 @@ class BioMedCLIPModel(VisionLanguageModel):
             else:
                 raise ValueError("Either images or texts must be provided")
         
-        # Compute loss if requested
         loss = None
         if return_loss and logits_per_image is not None:
             loss = self.clip_loss(logits_per_text)
         
-        # Return outputs
+        if logits_per_image is not None:
+            logits_per_image = logits_per_image.softmax(dim=-1)
+            logits_per_text = logits_per_image.t()
+        
         if return_dict:
             outputs = {
                 'img_embeds': image_features,
@@ -383,6 +380,7 @@ class BioMedCLIPClassifier(nn.Module):
         
         # Stack similarities for all classes
         class_similarities = torch.stack(class_similarities, dim=1)  # [batch, num_classes]
+        class_similarities = class_similarities.softmax(dim=-1)
         
         outputs = {
             'logits': class_similarities,
@@ -414,11 +412,19 @@ class BioMedCLIPClassifier(nn.Module):
         for cls_name, cls_text in prompt_inputs.items():
             inputs = {'pixel_values': pixel_values}
             
-            # Handle tokenized inputs
-            if 'input_ids' in cls_text:
-                inputs['input_ids'] = cls_text['input_ids'].to(self.model.device)
-            if 'attention_mask' in cls_text:
-                inputs['attention_mask'] = cls_text['attention_mask'].to(self.model.device)
+            # Handle text inputs
+            if isinstance(cls_text, list):
+                # Text strings -> model will tokenize
+                inputs['texts'] = cls_text
+            elif isinstance(cls_text, dict):
+                # Tokenized inputs (for compatibility)
+                if 'input_ids' in cls_text:
+                    inputs['input_ids'] = cls_text['input_ids'].to(self.model.device)
+                if 'attention_mask' in cls_text:
+                    inputs['attention_mask'] = cls_text['attention_mask'].to(self.model.device)
+            else:
+                # Tensor inputs (for compatibility)
+                inputs['input_ids'] = cls_text.to(self.model.device)
             
             # Get model outputs
             outputs = self.model(**inputs)
@@ -434,6 +440,7 @@ class BioMedCLIPClassifier(nn.Module):
             class_names.append(cls_name)
         
         class_similarities = torch.stack(class_similarities, 1)
+        class_similarities = class_similarities.softmax(dim=-1)
         
         outputs = {
             'logits': class_similarities,
@@ -442,96 +449,254 @@ class BioMedCLIPClassifier(nn.Module):
         
         return outputs
 
-
-class BioMedCLIPFeatureExtractor(nn.Module):
-    """
-    Feature extractor using BioMedCLIP vision encoder.
-    Can be used for downstream supervised learning tasks.
-    """
+if __name__ == '__main__':
+    import torch
+    from PIL import Image
+    import numpy as np
     
-    def __init__(
-        self,
-        biomedclip_model: BioMedCLIPModel,
-        num_classes: int,
-        freeze_encoder: bool = True,
-        hidden_dim: Optional[int] = None
-    ):
-        """
-        Initialize feature extractor with classification head.
+    from ..dataset.rsna import RSNADataset, create_rsna_dataloader
+    from ..utils.constants import (
+        MODEL_TRANSFORMS,
+        RSNA_TASKS
+    )
+    
+    print("=" * 80)
+    print("🧪 Testing BioMedCLIP Model and Classifier")
+    print("=" * 80)
+    
+    # ============================================================================
+    # 1. TEST BIOMedCLIP MODEL
+    # ============================================================================
+    print("\n" + "=" * 80)
+    print("1️⃣  Testing BioMedCLIPModel")
+    print("=" * 80)
+    
+    try:
+        # Initialize model
+        print("\n📦 Initializing BioMedCLIPModel...")
+        model = BioMedCLIPModel(model_name='hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224')
+        print(f"✅ Model initialized on device: {model.device}")
+        print(f"   Context length: {model.context_length}")
         
-        Args:
-            biomedclip_model: Pretrained BioMedCLIP model
-            num_classes: Number of output classes
-            freeze_encoder: Whether to freeze the vision encoder weights
-            hidden_dim: Optional hidden dimension for classification head
-        """
-        super().__init__()
-        self.encoder = biomedclip_model
-        self.num_classes = num_classes
+        # Test encode_text
+        print("\n📝 Testing encode_text()...")
+        text1 = "a medical image of pneumonia"
+        text2 = ["a chest X-ray showing pneumonia", "a normal chest X-ray"]
         
-        # Freeze encoder if requested
-        if freeze_encoder:
-            for param in self.encoder.model.parameters():
-                param.requires_grad = False
+        # Single text
+        text_features_single = model.encode_text(text1)
+        print(f"✅ Single text encoding: shape {text_features_single.shape}")
         
-        # Get feature dimension from the model
-        with torch.no_grad():
-            dummy_image = torch.randn(1, 3, 224, 224).to(self.encoder.device)
-            features = self.encoder.encode_image(dummy_image, normalize=False)
-            feature_dim = features.shape[-1]
+        # Multiple texts
+        text_features_multi = model.encode_text(text2)
+        print(f"✅ Multiple texts encoding: shape {text_features_multi.shape}")
         
-        # Create classification head
-        if hidden_dim:
-            self.classifier = nn.Sequential(
-                nn.Linear(feature_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.5),
-                nn.Linear(hidden_dim, num_classes)
+        # Test encode_image
+        print("\n🖼️  Testing encode_image()...")
+        # Create dummy image tensor
+        dummy_image_tensor = torch.randn(2, 3, 224, 224)
+        image_features_tensor = model.encode_image(dummy_image_tensor)
+        print(f"✅ Image tensor encoding: shape {image_features_tensor.shape}")
+        
+        # Test forward with texts only
+        print("\n🔄 Testing forward() with texts only...")
+        outputs_text = model.forward(texts=text2, return_dict=True)
+        print(f"✅ Forward with texts:")
+        print(f"   Text embeddings shape: {outputs_text['text_embeds'].shape}")
+        print(f"   Logits: {outputs_text['logits']}")
+        
+        # Test forward with images only
+        print("\n🔄 Testing forward() with images only...")
+        outputs_img = model.forward(images=dummy_image_tensor, return_dict=True)
+        print(f"✅ Forward with images: image embeddings shape {outputs_img['img_embeds'].shape}")
+        
+        # Test forward with both images and texts
+        print("\n🔄 Testing forward() with images and texts...")
+        outputs_both = model.forward(
+            images=dummy_image_tensor,
+            texts=text2,
+            return_dict=True
+        )
+        print(f"✅ Forward with images and texts:")
+        print(f"   Image embeddings shape: {outputs_both['img_embeds'].shape}")
+        print(f"   Text embeddings shape: {outputs_both['text_embeds'].shape}")
+        print(f"   Logits shape: {outputs_both['logits'].shape}")
+        print(f"   Logits (softmax applied): sum per image = {outputs_both['logits'].sum(dim=-1)}")
+        
+        # Test forward with pixel_values
+        print("\n🔄 Testing forward() with pixel_values...")
+        outputs_pixel = model.forward(
+            pixel_values=dummy_image_tensor,
+            texts=text2,
+            return_dict=True
+        )
+        print(f"✅ Forward with pixel_values and texts: logits shape {outputs_pixel['logits'].shape}")
+        
+    except Exception as e:
+        print(f"❌ Error testing BioMedCLIPModel: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # ============================================================================
+    # 2. TEST BIOMedCLIP CLASSIFIER
+    # ============================================================================
+    print("\n" + "=" * 80)
+    print("2️⃣  Testing BioMedCLIPClassifier")
+    print("=" * 80)
+    
+    try:
+        # Initialize classifier
+        print("\n📦 Initializing BioMedCLIPClassifier...")
+        classifier = BioMedCLIPClassifier(
+            biomedclip_model=model,
+            ensemble=False,
+            templates=["a chest X-ray showing {}"]
+        )
+        print(f"✅ Classifier initialized")
+        print(f"   Templates: {classifier.templates}")
+        print(f"   Ensemble: {classifier.ensemble}")
+        
+        # Test create_text_prompts
+        print("\n📝 Testing create_text_prompts()...")
+        class_names = RSNA_TASKS  # ['Pneumonia', 'Normal']
+        prompts = classifier.create_text_prompts(class_names)
+        print(f"✅ Created prompts for {len(class_names)} classes:")
+        for i, prompt in enumerate(prompts):
+            print(f"   {i+1}. {prompt}")
+        
+        # Test classify_with_templates
+        print("\n🎯 Testing classify_with_templates()...")
+        test_images = torch.randn(2, 3, 224, 224)
+        outputs_template = classifier.classify_with_templates(
+            pixel_values=test_images,
+            class_names=class_names
+        )
+        print(f"✅ classify_with_templates:")
+        print(f"   Logits shape: {outputs_template['logits'].shape}")
+        print(f"   Class names: {outputs_template['class_names']}")
+        print(f"   Logits (softmax): sum per image = {outputs_template['logits'].sum(dim=-1)}")
+        # Get predictions
+        predictions = outputs_template['logits'].argmax(dim=-1)
+        print(f"   Predictions: {[class_names[p] for p in predictions]}")
+        
+        # Test forward with prompt_inputs (simulating collator output)
+        print("\n🎯 Testing forward() with prompt_inputs...")
+        # Simulate prompt_inputs from collator (text strings)
+        prompt_inputs = {
+            'Pneumonia': ['a chest X-ray showing Pneumonia', 'chest X-ray with pneumonia'],
+            'Normal': ['a chest X-ray showing Normal', 'normal chest X-ray']
+        }
+        outputs_forward = classifier.forward(
+            pixel_values=test_images,
+            prompt_inputs=prompt_inputs
+        )
+        print(f"✅ forward with prompt_inputs:")
+        print(f"   Logits shape: {outputs_forward['logits'].shape}")
+        print(f"   Class names: {outputs_forward['class_names']}")
+        print(f"   Logits (softmax): sum per image = {outputs_forward['logits'].sum(dim=-1)}")
+        predictions = outputs_forward['logits'].argmax(dim=-1)
+        print(f"   Predictions: {[outputs_forward['class_names'][p] for p in predictions]}")
+        
+    except Exception as e:
+        print(f"❌ Error testing BioMedCLIPClassifier: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # ============================================================================
+    # 3. TEST WITH RSNA DATASET AND DATALOADER
+    # ============================================================================
+    print("\n" + "=" * 80)
+    print("3️⃣  Testing with RSNA Dataset and DataLoader")
+    print("=" * 80)
+    
+    try:
+        # Create dataset
+        print("\n📂 Creating RSNA dataset...")
+        dataset = RSNADataset(
+            data_root='../local_data',
+            split='test',
+            model_type='biomedclip',
+            transform=MODEL_TRANSFORMS['biomedclip']
+        )
+        print(f"✅ Dataset created: {len(dataset)} samples")
+        print(f"   Class names: {dataset.get_class_names()}")
+        
+        # Test single sample
+        if len(dataset) > 0:
+            print("\n📊 Testing single sample from dataset...")
+            img, labels = dataset[0]
+            print(f"✅ Sample loaded:")
+            print(f"   Image shape: {img.shape}")
+            print(f"   Labels: {labels}")
+            
+            # Test with classifier
+            img_batch = img.unsqueeze(0)  # Add batch dimension
+            class_names = dataset.get_class_names()
+            outputs = classifier.classify_with_templates(
+                pixel_values=img_batch,
+                class_names=class_names
             )
-        else:
-            self.classifier = nn.Linear(feature_dim, num_classes)
+            print(f"   Classification logits shape: {outputs['logits'].shape}")
+            pred = outputs['logits'].argmax(dim=-1)[0].item()
+            print(f"   Prediction: {class_names[pred]} (confidence: {outputs['logits'][0][pred]:.4f})")
+            print(f"   Ground truth: {class_names[labels.argmax().item()]}")
+        
+        # Test with DataLoader
+        print("\n🔄 Creating DataLoader...")
+        dataloader = create_rsna_dataloader(
+            data_root='../local_data',
+            split='test',
+            model_type='biomedclip',
+            task_type='zeroshot',
+            batch_size=2,
+            shuffle=False,
+            num_workers=0
+        )
+        print(f"✅ DataLoader created")
+        
+        # Test one batch
+        print("\n🔄 Testing one batch from DataLoader...")
+        for batch in dataloader:
+            pixel_values = batch['pixel_values']
+            prompt_inputs = batch['prompt_inputs']
+            labels = batch['labels']
+            class_names = batch['class_names']
+            
+            print(f"✅ Batch loaded:")
+            print(f"   Pixel values shape: {pixel_values.shape}")
+            print(f"   Labels shape: {labels.shape}")
+            print(f"   Class names: {class_names}")
+            print(f"   Prompt inputs keys: {list(prompt_inputs.keys())}")
+            
+            # Test with classifier
+            outputs = classifier.forward(
+                pixel_values=pixel_values,
+                prompt_inputs=prompt_inputs
+            )
+            print(f"   Classification outputs:")
+            print(f"     Logits shape: {outputs['logits'].shape}")
+            print(f"     Logits (softmax): sum = {outputs['logits'].sum(dim=-1)}")
+            
+            # Get predictions
+            predictions = outputs['logits'].argmax(dim=-1)
+            print(f"     Predictions: {[outputs['class_names'][p.item()] for p in predictions]}")
+            
+            # Calculate accuracy for this batch
+            gt_classes = labels.argmax(dim=-1)
+            accuracy = (predictions == gt_classes).float().mean()
+            print(f"     Batch accuracy: {accuracy.item():.4f}")
+            
+            break  # Only test first batch
+        
+    except Exception as e:
+        print(f"❌ Error testing with RSNA dataset: {e}")
+        import traceback
+        traceback.print_exc()
     
-    def forward(
-        self,
-        pixel_values: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,
-        return_loss: bool = True
-    ) -> Dict:
-        """
-        Forward pass for feature extraction and classification.
-        
-        Args:
-            pixel_values: Preprocessed image tensors
-            labels: Ground truth labels
-            return_loss: Whether to compute and return loss
-            
-        Returns:
-            Dictionary containing logits, embeddings, and optionally loss
-        """
-        outputs = defaultdict()
-        
-        # Extract features
-        img_embeds = self.encoder.encode_image(pixel_values, normalize=False)
-        
-        # Classification
-        logits = self.classifier(img_embeds)
-        
-        outputs['embedding'] = img_embeds
-        outputs['logits'] = logits
-        
-        # Compute loss if labels provided
-        if labels is not None and return_loss:
-            labels = labels.to(self.encoder.device)
-            if self.num_classes == 1:
-                # Binary classification
-                loss_fn = nn.BCEWithLogitsLoss()
-                labels = labels.float().view(-1, 1)
-            else:
-                # Multi-class classification
-                loss_fn = nn.CrossEntropyLoss()
-                labels = labels.long()
-            
-            loss = loss_fn(logits, labels)
-            outputs['loss_value'] = loss
-        
-        return outputs
+    # ============================================================================
+    # SUMMARY
+    # ============================================================================
+    print("\n" + "=" * 80)
+    print("✅ Testing completed!")
+    print("=" * 80)
+    
