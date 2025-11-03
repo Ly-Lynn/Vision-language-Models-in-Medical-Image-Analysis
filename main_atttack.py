@@ -71,7 +71,7 @@ def main(args):
         model_config = config.get('model', {})
             
         model = ModelFactory.create_model(
-            model_type=model_type,
+            model_type=args.model_name,
             variant='base',
             # checkpoint="checkpoints/entrep_checkpoint.pt",
             checkpoint=None,
