@@ -5,9 +5,12 @@ from typing import Optional
 from pathlib import Path
 from transformers import AutoModelForMaskedLM
 from functools import partial
-
+from PIL import Image
 # Import base classes
 from .base import TextEncoder, VisionEncoder
+from ..utils import constants
+from transformers import AutoTokenizer
+
 
 __all__ = [
     'CLIPTextEncoder',
@@ -472,7 +475,9 @@ class ENTRepModel(nn.Module):
         self.text_encoder_type = text_encoder_type
         self.feature_dim = feature_dim
         self.num_classes = num_classes
-        
+        self.preprocess = constants.MODEL_TRANSFORMS['entrep']
+        self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['entrep']
         # Create text encoder (optional)
         # Không load text_checkpoint nếu có checkpoint (sẽ load sau)
         if text_encoder_type == 'clip':
@@ -500,82 +505,83 @@ class ENTRepModel(nn.Module):
             )
             
             # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
-            if vision_checkpoint is not None and checkpoint is None:
-                logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
-                checkpoint = torch.load(vision_checkpoint)
-                state_dict = checkpoint["model_state_dict"]
+        #     if vision_checkpoint is not None and checkpoint is None:
+        #         logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
+        #         checkpoint = torch.load(vision_checkpoint)
+        #         state_dict = checkpoint["model_state_dict"]
                 
-                # Filter ra classifier keys để tránh size mismatch
-                filtered_state_dict = {}
-                skipped_keys = []
-                for key, value in state_dict.items():
-                    if 'classifier' in key:
-                        skipped_keys.append(key)
-                        logger.debug(f"   Skipping {key} (classifier will be re-initialized)")
-                    else:
-                        filtered_state_dict[key] = value
+        #         # Filter ra classifier keys để tránh size mismatch
+        #         filtered_state_dict = {}
+        #         skipped_keys = []
+        #         for key, value in state_dict.items():
+        #             if 'classifier' in key:
+        #                 skipped_keys.append(key)
+        #                 logger.debug(f"   Skipping {key} (classifier will be re-initialized)")
+        #             else:
+        #                 filtered_state_dict[key] = value
                 
-                logger.info(f"   Loading {len(filtered_state_dict)} keys, skipping {len(skipped_keys)} classifier keys")
+        #         logger.info(f"   Loading {len(filtered_state_dict)} keys, skipping {len(skipped_keys)} classifier keys")
                 
-                missing_keys, unexpected_keys = self.vision_model.load_state_dict(
-                    filtered_state_dict,
-                    strict=False
-                )
+        #         missing_keys, unexpected_keys = self.vision_model.load_state_dict(
+        #             filtered_state_dict,
+        #             strict=False
+        #         )
                 
-                if missing_keys:
-                    logger.info(f"✅ Missing keys (expected - classifier): {len(missing_keys)}")
-                if unexpected_keys:
-                    logger.warning(f"⚠️ Unexpected keys: {len(unexpected_keys)}")
+        #         if missing_keys:
+        #             logger.info(f"✅ Missing keys (expected - classifier): {len(missing_keys)}")
+        #         if unexpected_keys:
+        #             logger.warning(f"⚠️ Unexpected keys: {len(unexpected_keys)}")
                 
-                logger.info("✅ Vision checkpoint loaded! Backbone + feature_projection loaded, classifier re-initialized.")
+        #         logger.info("✅ Vision checkpoint loaded! Backbone + feature_projection loaded, classifier re-initialized.")
                 
-        elif vision_encoder_type == 'endovit':
-            logger.info(f"🏗️ Creating EntVitModel wrapper...")
-            self.vision_model = EntVitModel(
-                model_name=model_name if model_name else 'egeozsoy/EndoViT',
-                feature_dim=feature_dim,
-                num_classes=num_classes,
-                dropout=dropout,
-                freeze_backbone=freeze_backbone
-            )
+        # elif vision_encoder_type == 'endovit':
+        #     logger.info(f"🏗️ Creating EntVitModel wrapper...")
+        #     self.vision_model = EntVitModel(
+        #         model_name=model_name if model_name else 'egeozsoy/EndoViT',
+        #         feature_dim=feature_dim,
+        #         num_classes=num_classes,
+        #         dropout=dropout,
+        #         freeze_backbone=freeze_backbone
+        #     )
             
-            # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
-            if vision_checkpoint is not None and checkpoint is None:
-                logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
-                checkpoint = torch.load(vision_checkpoint, map_location='cpu')
-                state_dict = checkpoint["model_state_dict"]
+        #     # Load vision checkpoint riêng (chỉ khi KHÔNG có checkpoint)
+        #     if vision_checkpoint is not None and checkpoint is None:
+        #         logger.info(f"📥 Loading vision checkpoint: {vision_checkpoint}")
+        #         checkpoint = torch.load(vision_checkpoint, map_location='cpu')
+        #         state_dict = checkpoint["model_state_dict"]
                 
-                # Filter ra classifier keys để tránh size mismatch
-                filtered_state_dict = {}
-                skipped_keys = []
-                for key, value in state_dict.items():
-                    if 'classifier' in key:
-                        skipped_keys.append(key)
-                        logger.debug(f"   Skipping {key} (classifier will be re-initialized)")
-                    else:
-                        filtered_state_dict[key] = value
+        #         # Filter ra classifier keys để tránh size mismatch
+        #         filtered_state_dict = {}
+        #         skipped_keys = []
+        #         for key, value in state_dict.items():
+        #             if 'classifier' in key:
+        #                 skipped_keys.append(key)
+        #                 logger.debug(f"   Skipping {key} (classifier will be re-initialized)")
+        #             else:
+        #                 filtered_state_dict[key] = value
                 
-                logger.info(f"   Loading {len(filtered_state_dict)} keys, skipping {len(skipped_keys)} classifier keys")
+        #         logger.info(f"   Loading {len(filtered_state_dict)} keys, skipping {len(skipped_keys)} classifier keys")
                 
-                missing_keys, unexpected_keys = self.vision_model.load_state_dict(
-                    filtered_state_dict,
-                    strict=False
-                )
+        #         missing_keys, unexpected_keys = self.vision_model.load_state_dict(
+        #             filtered_state_dict,
+        #             strict=False
+        #         )
                 
-                if missing_keys:
-                    logger.info(f"✅ Missing keys (expected - classifier): {len(missing_keys)}")
-                if unexpected_keys:
-                    logger.warning(f"⚠️ Unexpected keys: {len(unexpected_keys)}")
+        #         if missing_keys:
+        #             logger.info(f"✅ Missing keys (expected - classifier): {len(missing_keys)}")
+        #         if unexpected_keys:
+        #             logger.warning(f"⚠️ Unexpected keys: {len(unexpected_keys)}")
                 
-                logger.info("✅ Vision checkpoint loaded! Backbone + feature_projection loaded, classifier re-initialized.")
-        else:
-            raise ValueError(f"Unknown vision encoder type: {vision_encoder_type}")
+        #         logger.info("✅ Vision checkpoint loaded! Backbone + feature_projection loaded, classifier re-initialized.")
+        # else:
+        #     raise ValueError(f"Unknown vision encoder type: {vision_encoder_type}")
         
         # Logit scale parameter for contrastive learning
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
         
         # Load full ENTRep checkpoint nếu có (ưu tiên cao nhất)
-        if checkpoint is not None:
+
+        if checkpoint:
             self._load_full_checkpoint(checkpoint)
         else:
             ckp = self.download_checkpoint()
@@ -583,6 +589,7 @@ class ENTRepModel(nn.Module):
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
+            
     def download_checkpoint(self):
         import gdown
         import os
@@ -592,14 +599,16 @@ class ENTRepModel(nn.Module):
                 return None
         # url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
         url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
-        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.zip")
+        entrep_output = os.path.join("checkpoints", "entrep_checkpoint.pt")
+        # entrep_output = "checkpoints/check"
         logger.info("Downloading ENTREP checkpoint from Google Drive...")
-        
         try:
             gdown.download(id=url_id, output=entrep_output, quiet=False)
-            with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
-                zip_ref.extractall(self.data_root)
-            os.remove(entrep_output)    
+
+            # with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
+            #     zip_ref.extractall(self.data_root)
+                
+            # os.remove(entrep_output)    
             return entrep_output
         except Exception as e:
             logger.error(f"Failed to download ENTREP checkpoint: {e}")
@@ -665,23 +674,127 @@ class ENTRepModel(nn.Module):
         if 'optimizer_state_dict' in checkpoint:
             logger.info(f"   ✅ Optimizer state available (for resume training)")
     
-    def encode_text(self, input_ids=None, attention_mask=None):
-        """Encode text inputs"""
-        if self.text_model is None:
-            raise NotImplementedError("Text encoding not supported (text_model is None)")
+    # def encode_text(self, input_ids=None, attention_mask=None):
+    #     """Encode text inputs"""
+    #     if self.text_model is None:
+    #         raise NotImplementedError("Text encoding not supported (text_model is None)")
         
-        # Get text embeddings
-        text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
-        # Already normalized in CLIPTextEncoder
-        return text_embeds
+    #     # Get text embeddings
+    #     text_embeds = self.text_model(input_ids, attention_mask, return_features=False)
+    #     # Already normalized in CLIPTextEncoder
+    #     return text_embeds
     
-    def encode_image(self, pixel_values):
-        """Encode image inputs"""
-        # Get image features from wrapper model
-        features = self.vision_model.get_features(pixel_values)
-        # Normalize
-        img_embeds = F.normalize(features, dim=-1)
-        return img_embeds
+    # def encode_image(self, pixel_values):
+    #     """Encode image inputs"""
+    #     # Get image features from wrapper model
+    #     features = self.vision_model.get_features(pixel_values)
+    #     # Normalize
+    #     img_embeds = F.normalize(features, dim=-1)
+    #     return img_embeds
+    
+    def encode_text(
+        self,
+        texts: str,
+        normalize: bool = True
+    ):
+    
+        text_inputs = self.tokenizer(
+            texts, 
+            padding=True, 
+            truncation=True, 
+            return_tensors='pt'
+        )
+        text_inputs = {k: v.cuda() for k, v in text_inputs.items()}
+        text_features =self.text_model(
+            text_inputs['input_ids'], 
+            text_inputs['attention_mask'],
+            return_features=False
+        )
+        
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        
+        return text_features
+        
+    def encode_image(
+        self,
+        images,
+        normalize=True
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        if isinstance(images, Image.Image):
+            images = [images]
+        
+        if isinstance(images, list):
+            # Process PIL images
+            image_tensors = torch.stack([self.preprocess(img) for img in images])
+            image_tensors = image_tensors.cuda()
+            # Assume tensor input
+        else:
+            image_tensors = images.cuda()
+            
+        image_features = self.vision_model.get_features(image_tensors)
+        if normalize:
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features   
+
+    def encode_posttransform_image( # truyền voad image tensor dwuodjc scale
+        self,
+        images: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        image_tensors = self.normalize_transform(images)
+        
+        image_features = self.vision_model.get_features(image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features     
+    
+    def encode_pretransform_image( # truyền voad image tensor dwuodjc scale
+        self,
+        images: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
+            
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        images_ = torch.round(images * 255.0).clamp(0, 255)
+        # Resize to model input size
+        image_tensors = F.interpolate(images_, size=(224, 224), mode="bilinear", align_corners=False)
+        image_tensors = image_tensors / 255.0
+        image_tensors = self.normalize_transform(image_tensors)
+        
+        image_features = self.vision_model.get_features(image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features   
+    
     
     def forward(self,
         input_ids=None,

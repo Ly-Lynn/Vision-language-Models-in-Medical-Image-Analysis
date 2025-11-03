@@ -1,6 +1,22 @@
-[
-  "vocal-throat",
-  "nose",
-  "ear",
-  "throat"
-]
+{
+  "vocal-throat": [
+    "endoscopic image of vocal-throat",
+    "medical image showing vocal-throat",
+    "clinical image of vocal-throat"
+  ],
+  "nose": [
+    "endoscopic image of nose",
+    "medical image showing nose",
+    "clinical image of nose"
+  ],
+  "ear": [
+    "endoscopic image of nose",
+    "medical image showing nose",
+    "clinical image of nose"
+  ],
+  "throat": [
+    "endoscopic image of throat",
+    "medical image showing throat",
+    "clinical image of throat"
+  ]
+}

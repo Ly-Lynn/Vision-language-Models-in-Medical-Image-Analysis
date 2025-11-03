@@ -6,13 +6,15 @@ from modules.utils.helpers import generate_rsna_class_prompts, generate_covid_cl
 from tqdm import tqdm
 import numpy as np
 import torch
+import yaml 
 import json
+
 def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
         if is_gt == 1:
             return i
         
-n_prompt = 5
+n_prompt = 3
 dataset_name = "entrep"
 model_type = 'entrep'
 transform = MODEL_TRANSFORMS[model_type]
@@ -26,29 +28,47 @@ dataset = DatasetFactory.create_dataset(
     transform=None
 )
 # print(dataset[0])k
-print(len(dataset))
-# raise
+print(len(dataset))# raise
 
+# ====================== Load model =====================
+if model_type == "medclip":
 
-model = ModelFactory.create_model(
-    model_type=model_type,
-    variant='base',
-    pretrained=True 
-)
+    model = ModelFactory.create_model(
+        model_type=model_type,
+        variant='base',
+        pretrained=True 
+    )
+
+elif model_type == "entrep":
+    config_path = "configs/entrep_contrastive.yaml"
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    model_config = config.get('model', {})
+        
+    model = ModelFactory.create_model(
+        model_type=model_type,
+        variant='base',
+        checkpoint="checkpoints/entrep_checkpoint.pt",
+        # checkpoint=None,
+        pretrained=False,
+        **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
+
+        )
 model.eval()
 
-# class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
-# class_prompts = ENTREP_CLASS_PROMPTS
-# class_features = []
-# for class_name, item in class_prompts.items():
-#     text_feats = model.encode_text(item)
-#     mean_feats = text_feats.mean(dim=0)
-#     class_features.append(mean_feats) 
-# class_features = torch.stack(class_features) #  NUM_ClASS x D
+# --------------------- Load class prompts ---------------------
+if dataset_name == "medclip":
+    class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
+elif dataset_name == "entrep":
+    class_prompts = ENTREP_CLASS_PROMPTS
+    
+class_features = []
+for class_name, item in class_prompts.items():
+    text_feats = model.encode_text(item)
+    mean_feats = text_feats.mean(dim=0)
+    class_features.append(mean_feats) 
+class_features = torch.stack(class_features) #  NUM_ClASS x D
 
-class_prompts = ENTREP_TASKS
-print("class_prompt: ", class_prompts)
-class_features = model.encode_text(class_prompts)
 
 all_preds = []
 all_labels = []

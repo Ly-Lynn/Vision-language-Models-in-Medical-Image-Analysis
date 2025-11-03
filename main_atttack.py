@@ -10,6 +10,7 @@ from modules.attack.evaluator import EvaluatePerturbation, DCTDecoder
 from modules.attack.util import seed_everything 
 import os
 from torchvision import transforms
+import yaml
 
 _toTensor = transforms.ToTensor()
 def _extract_label(dict_label):
@@ -56,11 +57,29 @@ def main(args):
     
     
     # ------------------ model -----------------------
-    model = ModelFactory.create_model(
-        model_type=args.model_name,
-        variant='base',
-        pretrained=True
-    )
+    if args.model_name == "medclip":
+        model = ModelFactory.create_model(
+            model_type=args.model_name,
+            variant='base',
+            pretrained=True
+        )
+        
+    elif args.model_name == "entrep":
+        config_path = "configs/entrep_contrastive.yaml"
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        model_config = config.get('model', {})
+            
+        model = ModelFactory.create_model(
+            model_type=model_type,
+            variant='base',
+            # checkpoint="checkpoints/entrep_checkpoint.pt",
+            checkpoint=None,
+            pretrained=False,
+            **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
+            )
+        
+    model.eval()
     
     # -------------- Decoder ------------
     decoder = None
@@ -68,9 +87,6 @@ def main(args):
         decoder = DCTDecoder(
             f_ratio=args.f_ratio
         )
-    
-    
-    
     
     
     # ----------------------- Evaluator ---------------

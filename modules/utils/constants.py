@@ -112,10 +112,26 @@ RSNA_CLASS_PROMPTS = {
 }
 
 ENTREP_CLASS_PROMPTS = {
-    'vocal-throat': ['vocal throat endoscopy', 'vocal cord endoscopy', 'laryngoscopy'],
-    'nose': ['nose endoscopy', 'nasal endoscopy', 'endoscopic image of nose'],
-    'ear': ['ear endoscopy', 'otoscopy', 'endoscopic image of ear'],
-    'throat': ['throat endoscopy', 'pharyngoscopy', 'endoscopic image of throat']
+    'vocal-throat': [
+        'endoscopic image of vocal-throat',
+        'medical image showing vocal-throat',
+        'clinical image of vocal-throat'
+    ],
+    'nose': [
+        'endoscopic image of nose',
+        'medical image showing nose',
+        'clinical image of nose'
+    ],
+    'ear': [
+        'endoscopic image of nose',
+        'medical image showing nose',
+        'clinical image of nose'
+    ],
+    'throat': [
+        'endoscopic image of throat',
+        'medical image showing throat',
+        'clinical image of throat'
+    ],
 }
 
 # Model weights
@@ -207,7 +223,7 @@ MODEL_TRANSFORMS = {
             transforms.Lambda(lambda x: x.convert("RGB")),
             transforms.Resize((IMG_SIZE, IMG_SIZE)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+            transforms.Normalize(mean=ENTREP_MEAN, std=ENTREP_STD)
         ]
     ),
 }
