@@ -599,6 +599,7 @@ class ENTRepModel(nn.Module):
                 return None
         # url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
         url_id = "1QbOWc4_MU2tiiFLsuTAeyTYF40_X8Hz2"
+        os.makedirs('checkpoints', exist_ok=True)
         entrep_output = os.path.join("checkpoints", "entrep_checkpoint.pt")
         # entrep_output = "checkpoints/check"
         logger.info("Downloading ENTREP checkpoint from Google Drive...")

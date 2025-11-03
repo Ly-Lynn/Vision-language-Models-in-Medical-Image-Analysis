@@ -14,7 +14,8 @@ dataset_name = "entrep"
 model = ModelFactory.create_model(
     model_type=model_name,
     variant='base',
-    checkpoint="checkpoints/entrep_checkpoint.pt",
+    # checkpoint="checkpoints/entrep_checkpoint.pt",
+    checkpoint=None,
     pretrained=False,
     **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
 
