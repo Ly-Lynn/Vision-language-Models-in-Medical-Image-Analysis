@@ -7,7 +7,7 @@ from typing import Optional, Dict, List, Union
 import numpy as np
 from collections import defaultdict
 from ..utils import constants
-
+import torch.nn.functional as F
 from .base import VisionLanguageModel
 
 
@@ -20,7 +20,8 @@ class BioMedCLIPModel(VisionLanguageModel):
     def __init__(
         self,
         model_name: str = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
-        context_length: int = 256
+        context_length: int = 256,
+        checkpoint=None
     ):
         """
         Initialize BioMedCLIP model.
@@ -39,7 +40,7 @@ class BioMedCLIPModel(VisionLanguageModel):
         self.context_length = context_length
         self.normalize_transform = constants.TENSOR_NORMALIZE_TRANSFORM['biomedclip']
         
-        # print("preproccess: ", self.preprocess)
+        print("preproccess: ", self.preprocess)
         # raise
         
         # Move model to device
@@ -136,9 +137,9 @@ class BioMedCLIPModel(VisionLanguageModel):
         
         return image_features
     
-    def encode_posttransform_image(
+    def encode_posttransform_image( # truyền voad image tensor dwuodjc scale
         self,
-        images: Union[torch.Tensor, List[Image.Image], Image.Image]
+        images: torch.Tensor
     ) -> torch.Tensor:
         """
         Encode image inputs to embeddings.
@@ -151,25 +152,42 @@ class BioMedCLIPModel(VisionLanguageModel):
             Image embeddings tensor
         """
         # Handle different input types
-        if isinstance(images, Image.Image):
-            images = [images]
+        image_tensors = self.normalize_transform(images)
         
-        if isinstance(images, list):
-            # Process PIL images
-            image_tensors = torch.stack([self.normalize_transform(img) for img in images])
-            image_tensors = image_tensors.to(self.device)
-        else:
-            # Assume tensor input
-            image_tensors = images.to(self.device)
+        image_features = self.model.encode_image(image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features    
             
+    def encode_pretransform_image( # truyền voad image tensor dwuodjc scale
+        self,
+        images: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Encode image inputs to embeddings.
+        
+        Args:
+            images: Image tensor, PIL Image, or list of PIL Images
+            normalize: Whether to normalize the embeddings
             
+        Returns:
+            Image embeddings tensor
+        """
+        # Handle different input types
+        images_ = torch.round(images * 255.0).clamp(0, 255)
+        # Resize to model input size
+        image_tensors = F.interpolate(images_, size=(224, 224), mode="bilinear", align_corners=False)
+        image_tensors = image_tensors / 255.0
+        image_tensors = self.normalize_transform(image_tensors)
         
-        # Encode images
-        with torch.no_grad():
-            image_features = self.model.encode_image(image_tensors)
+
+
         
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)        
-        return image_features
+        image_features = self.model.encode_image(image_tensors)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        
+        return image_features           
+
     
     def forward(
         self,

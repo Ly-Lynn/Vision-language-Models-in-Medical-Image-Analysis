@@ -187,7 +187,7 @@ class ModelFactory:
         logger.info(f"🏗️ Creating {model_type} model...")
         
         try:
-            print(config)
+
             model = model_class(**config)
             logger.info(f"✅ {model_type} model created successfully")
             return model

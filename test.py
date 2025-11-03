@@ -14,11 +14,11 @@ def _extract_label(dict_label):
         if is_gt == 1:
             return i
         
-n_prompt = 3
-dataset_name = "entrep"
-model_type = 'entrep'
+n_prompt = 5
+dataset_name = "rsna"
+model_type = 'biomedclip'
 transform = MODEL_TRANSFORMS[model_type]
-batch_size = 32
+batch_size = 128
 
 DATA_ROOT = 'local_data'
 dataset = DatasetFactory.create_dataset(
@@ -54,10 +54,18 @@ elif model_type == "entrep":
         **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
 
         )
+    
+elif model_type == "biomedclip":
+    model = ModelFactory.create_model(
+        model_type=model_type,
+        variant='base',
+        pretrained=False,
+        )
+    
 model.eval()
 
 # --------------------- Load class prompts ---------------------
-if dataset_name == "medclip":
+if dataset_name == "rsna":
     class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
 elif dataset_name == "entrep":
     class_prompts = ENTREP_CLASS_PROMPTS

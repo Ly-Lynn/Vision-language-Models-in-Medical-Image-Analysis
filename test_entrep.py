@@ -9,21 +9,21 @@ with open(config_path, 'r') as f:
     
 model_config = config.get('model', {})
 
-model_name = "entrep"
-dataset_name = "entrep"
+model_name = "biomedclip"
+dataset_name = "rsna"
 model = ModelFactory.create_model(
     model_type=model_name,
     variant='base',
     # checkpoint="checkpoints/entrep_checkpoint.pt",
-    checkpoint=None,
+    # checkpoint=None,
     pretrained=False,
-    **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
+    # **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
 
 )
 
 model.eval()
 
-dataset_name = "entrep"
+dataset_name = "rsna"
 dataset = DatasetFactory.create_dataset(
     dataset_name=dataset_name,
     model_type=model_name,
@@ -33,7 +33,7 @@ dataset = DatasetFactory.create_dataset(
 )
 
 img, label = dataset[100]
-# img.save("test.png")
+img.save("test.png")
 print(label)
 
 img_fea = model.encode_image([img])

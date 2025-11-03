@@ -1,0 +1,16 @@
+{
+  "Pneumonia": [
+    "focal mycoplasma at the right lung base",
+    "early viral at the right lower lobe",
+    "multifocal at the right middle lobe",
+    "small mycoplasma at the right lung base",
+    "multifocal at the upper lung zone"
+  ],
+  "Normal": [
+    "clear findings image",
+    "healthy chest radiograph",
+    "normal lungs x-ray",
+    "normal findings x-ray",
+    "normal findings image"
+  ]
+}

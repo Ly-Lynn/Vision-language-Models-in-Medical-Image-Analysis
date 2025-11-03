@@ -1,7 +1,7 @@
 import json
 import random
 
-path = r"D:\thesis_result\Vision-language-Models-in-Medical-Image-Analysis\evaluate_result\model_name=entrep_dataset=entrep_n_prompt=3.json"
+path = r"D:\thesis_result\Vision-language-Models-in-Medical-Image-Analysis\evaluate_result\model_name=biomedclip_dataset=rsna_n_prompt=5.json"
 # Đọc file JSON
 with open(path, "r") as f:
     data = json.load(f)
@@ -13,8 +13,8 @@ print(len(correct) / len(data))
 by_class = {
     '0': [],
     '1': [],
-    '2': [],
-    '3': []
+    # '2': [],
+    # '3': []
 }
 for item in correct:
     by_class[str(item['gt_pred_id'])].append(item['index'])
