@@ -147,7 +147,7 @@ def main(args):
         clean_preds = sims.argmax(dim=-1).item()                    # (B,)
         print("Clean preds: ", clean_preds)
         print("Label_id: ", label_id)
-        raise
+        # raise
 
         # main attack
         attacker.evaluator.set_data(
