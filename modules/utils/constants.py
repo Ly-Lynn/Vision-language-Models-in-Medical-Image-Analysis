@@ -286,7 +286,7 @@ TENSOR_NORMALIZE_TRANSFORM = {
     ),
     'entrep': transforms.Compose(
         [
-            transforms.Normalize(mean=[IMG_MEAN], std=[IMG_STD])
+            transforms.Normalize(mean=ENTREP_MEAN, std=ENTREP_STD)
         ]
     )
 }
