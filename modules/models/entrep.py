@@ -10,6 +10,7 @@ from PIL import Image
 from .base import TextEncoder, VisionEncoder
 from ..utils import constants
 from transformers import AutoTokenizer
+from huggingface_hub import hf_hub_download
 
 
 __all__ = [
@@ -604,8 +605,14 @@ class ENTRepModel(nn.Module):
         # entrep_output = "checkpoints/check"
         logger.info("Downloading ENTREP checkpoint from Google Drive...")
         try:
-            gdown.download(id=url_id, output=entrep_output, quiet=False)
+            # gdown.download(id=url_id, output=entrep_output, quiet=False)
 
+            hf_hub_download(
+                    repo_id="Woffy/ENTREP_CLIP",  # sửa repo của bạn
+                    filename="entrep_checkpoint.pt",
+                    local_dir="checkpoints",                 # tải đúng vào thư mục bạn muốn
+                    force_download=False,                    # không tải lại nếu đã có sẵn
+                )
             # with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
             #     zip_ref.extractall(self.data_root)
                 
