@@ -22,7 +22,7 @@ class BaseAttack:
             return margins.clone(), l2s.clone()
         
     def is_success(self, margin):
-        if margin <= 0:
+        if margin < 0:
             return True
         return False
     
