@@ -281,6 +281,10 @@ class ModelFactory:
         # 3. Prepare configuration
         config = cls._prepare_model_config(model_type, checkpoint, **kwargs)
         
+        # IMPORTANT: Add pretrained flag to config for ENTRep
+        if model_type == 'entrep':
+            config['pretrained'] = pretrained
+        
         # 4. Instantiate model
         model = cls._instantiate_model(model_type, model_class, config)
         
