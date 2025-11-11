@@ -160,7 +160,8 @@ def main():
     if args.output_dir:
         config['experiment']['output_dir'] = args.output_dir
     
-    # Update pretrained path in config
+    # QUAN TRỌNG: Đảm bảo pretrained=True và set checkpoint path
+    config['model']['pretrained'] = True
     config['model']['checkpoint'] = args.pretrained_path
     
     # Log thông tin quan trọng
@@ -172,11 +173,13 @@ def main():
     logger.info(f"   IMG_MEAN = {constants.IMG_MEAN}")
     logger.info(f"   IMG_STD = {constants.IMG_STD}")
     logger.info(f"   IMG_SIZE = {constants.IMG_SIZE}")
-    logger.info(f"✅ Pretrained = True (loading from checkpoint)")
+    logger.info(f"✅ Pretrained = {config['model']['pretrained']} (loading from checkpoint)")
+    logger.info(f"✅ Checkpoint = {config['model']['checkpoint']}")
     logger.info("=" * 70)
     
     # Tạo model sử dụng factory
     logger.info("🏗️ Creating ENTRep model with pretrained weights...")
+    logger.info(f"   Model config: pretrained={config['model']['pretrained']}, checkpoint={config['model']['checkpoint']}")
     model = create_model(**config['model'])
     
     # Print model info
