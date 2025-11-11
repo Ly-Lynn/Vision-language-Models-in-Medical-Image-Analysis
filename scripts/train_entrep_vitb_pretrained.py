@@ -180,7 +180,19 @@ def main():
     # Tạo model sử dụng factory
     logger.info("🏗️ Creating ENTRep model with pretrained weights...")
     logger.info(f"   Model config: pretrained={config['model']['pretrained']}, checkpoint={config['model']['checkpoint']}")
-    model = create_model(**config['model'])
+    
+    # Extract pretrained flag to pass explicitly (avoid default override)
+    model_config = config['model'].copy()
+    pretrained_flag = model_config.pop('pretrained', True)  # Default True for pretrained
+    checkpoint_path = model_config.pop('checkpoint', None)
+    
+    logger.info(f"   Calling create_model with: pretrained={pretrained_flag}, checkpoint={checkpoint_path}")
+    
+    model = create_model(
+        pretrained=pretrained_flag,    # ← Explicitly pass pretrained
+        checkpoint=checkpoint_path,     # ← Explicitly pass checkpoint
+        **model_config
+    )
     
     # Print model info
     total_params = sum(p.numel() for p in model.parameters())
