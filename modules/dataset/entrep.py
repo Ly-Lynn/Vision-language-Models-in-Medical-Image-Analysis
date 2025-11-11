@@ -125,9 +125,9 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
         
         os.makedirs(self.data_root, exist_ok=True)
-        entrep_data_path = os.path.join(self.data_root, 'entrep')
-        # print("Entrep data path: ", entrep_data_path)
-        # input()
+        
+        # data_root is already 'local_data/entrep', no need to add 'entrep' again
+        entrep_data_path = self.data_root
         
         # Check if required files exist
         data_csv_path = os.path.join(entrep_data_path, "entrep-data.csv")
