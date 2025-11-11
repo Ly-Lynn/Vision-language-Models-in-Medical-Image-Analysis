@@ -36,22 +36,15 @@ class CLIPTextEncoder(TextEncoder):
         if pretrained:
             try:
                 self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                                             use_safetensors=True, 
+                                             use_safetensors=False, 
                                             #  local_files_only=True,
                                             #  trust_remote_code=True
                                              )
-            except:
-                # Fallback if safetensors fails
-                # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                #                              use_safetensors=False, 
-                #                             #  local_files_only=True,
-                #                             #  trust_remote_code=True
-                #                              )
-                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                                             use_safetensors=True, 
-                                            #  local_files_only=True,
-                                            #  trust_remote_code=True
-                                             )
+            except Exception as e:
+                # Fallback if loading fails
+                logger.warning(f"Failed to load ClinicalBERT with safetensors=False: {e}")
+                logger.info("Trying alternative loading method...")
+                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT")
         else:
             from transformers import AutoConfig
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
