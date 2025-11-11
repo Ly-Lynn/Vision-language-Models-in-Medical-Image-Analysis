@@ -573,13 +573,17 @@ class ENTRepModel(nn.Module):
         # Logit scale parameter for contrastive learning
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
         
-        # Load full ENTRep checkpoint nếu có (ưu tiên cao nhất)
-
-        if checkpoint:
-            self._load_full_checkpoint(checkpoint)
+        if pretrained:
+            if checkpoint:
+                self._load_full_checkpoint(checkpoint)
+            else:
+                logger.info("⚠️  pretrained=True but no checkpoint provided, downloading default checkpoint...")
+                ckp = self.download_checkpoint()
+                self._load_full_checkpoint(ckp)
         else:
-            ckp = self.download_checkpoint()
-            self._load_full_checkpoint(ckp)
+            logger.info("✅ Training from scratch (pretrained=False), skipping checkpoint loading")
+            logger.info("   All weights are randomly initialized")
+            
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
