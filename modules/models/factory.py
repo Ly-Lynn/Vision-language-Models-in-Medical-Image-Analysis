@@ -91,7 +91,6 @@ class ModelFactory:
             'vision_checkpoint': None,
             'text_checkpoint': None,
             'logit_scale_init_value': 0.07,
-            'pretrained': True,
         }
     }
     

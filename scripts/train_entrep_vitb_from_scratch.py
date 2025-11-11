@@ -188,6 +188,12 @@ def main():
     pretrained_flag = model_config.pop('pretrained', False)  # Default False for scratch
     checkpoint_path = model_config.pop('checkpoint', None)
     
+    # Debug: Check if pretrained still in model_config
+    logger.info(f"   🔍 DEBUG: pretrained_flag = {pretrained_flag}")
+    logger.info(f"   🔍 DEBUG: checkpoint_path = {checkpoint_path}")
+    logger.info(f"   🔍 DEBUG: 'pretrained' in model_config = {'pretrained' in model_config}")
+    logger.info(f"   🔍 DEBUG: model_config keys = {list(model_config.keys())}")
+    
     logger.info(f"   Calling create_model with: pretrained={pretrained_flag}, checkpoint={checkpoint_path}")
     
     model = create_model(
