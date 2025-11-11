@@ -710,13 +710,34 @@ class ENTRepModel(nn.Module):
             return_tensors='pt'
         )
         text_inputs = {k: v.cuda() for k, v in text_inputs.items()}
-        text_features =self.text_model(
+        text_features = self.text_model(
             text_inputs['input_ids'], 
             text_inputs['attention_mask'],
             return_features=False
         )
         
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        
+        return text_features
+    
+    def encode_text_from_tokens(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        normalize: bool = True
+    ):
+        """
+        Encode text from pre-tokenized input_ids
+        Used for training with collated batches
+        """
+        text_features = self.text_model(
+            input_ids, 
+            attention_mask,
+            return_features=False
+        )
+        
+        if normalize:
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
         
         return text_features
         
@@ -824,7 +845,8 @@ class ENTRepModel(nn.Module):
         
         # Encode text if available
         if self.text_model is not None and input_ids is not None:
-            text_embeds = self.encode_text(input_ids, attention_mask)
+            # Use encode_text_from_tokens for pre-tokenized inputs
+            text_embeds = self.encode_text_from_tokens(input_ids, attention_mask)
         else:
             text_embeds = None
 
