@@ -18,6 +18,8 @@ from modules.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+ENTREP_MEAN = [0.485, 0.456, 0.406]
+ENTREP_STD = [0.229, 0.224, 0.225]
 
 def load_model_from_checkpoint(checkpoint_path: str, config_path: str = None):
     """
@@ -75,7 +77,7 @@ def load_and_preprocess_image(image_path: str, transform=None):
             transform = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                transforms.Normalize(mean=ENTREP_MEAN, std=ENTREP_STD)
             ])
             image = transform(image)
         return image
@@ -118,22 +120,9 @@ def evaluate_single_image(model, image_path, class_names, device, transform=None
         
         # Encode text prompts
         if hasattr(model, 'encode_text'):
-            from transformers import AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-            
-            text_inputs = tokenizer(
-                text_prompts, 
-                padding=True, 
-                truncation=True, 
-                return_tensors='pt'
-            )
-            text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
-            
-            text_features = model.encode_text(
-                text_inputs['input_ids'], 
-                text_inputs['attention_mask']
-            )
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            # Pass raw text strings directly to encode_text
+            # The model will handle tokenization internally
+            text_features = model.encode_text(text_prompts, normalize=True)
         else:
             logger.error("Model không có encode_text method")
             return None
@@ -189,7 +178,7 @@ def main():
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.Normalize(mean=ENTREP_MEAN, std=ENTREP_STD)
         ])
         
         # Duyệt qua từng test case
