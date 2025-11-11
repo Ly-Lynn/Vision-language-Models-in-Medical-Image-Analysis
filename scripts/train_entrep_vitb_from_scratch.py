@@ -79,6 +79,13 @@ def create_config():
 
 
 def main():
+    # Debug: Print script name
+    import os
+    script_name = os.path.basename(__file__)
+    logger.info("=" * 70)
+    logger.info(f"🔍 DEBUG: Running script: {script_name}")
+    logger.info("=" * 70)
+    
     parser = argparse.ArgumentParser(
         description='Train ENTRep with ViT-Base from scratch (NO pretrained weights)'
     )
@@ -147,8 +154,19 @@ def main():
     if args.output_dir:
         config['experiment']['output_dir'] = args.output_dir
     
+    # FORCE pretrained=False và checkpoint=None cho from_scratch mode
+    logger.info("")
+    logger.info("🔧 DEBUG - Config BEFORE forcing:")
+    logger.info(f"   pretrained = {config['model'].get('pretrained')}")
+    logger.info(f"   checkpoint = {config['model'].get('checkpoint')}")
+    
     config['model']['pretrained'] = False
     config['model']['checkpoint'] = None
+    
+    logger.info("🔧 DEBUG - Config AFTER forcing:")
+    logger.info(f"   pretrained = {config['model']['pretrained']}")
+    logger.info(f"   checkpoint = {config['model']['checkpoint']}")
+    logger.info("")
     
     logger.info("=" * 70)
     logger.info("🚀 TRAINING ENTRep - ViT-Base FROM SCRATCH")
