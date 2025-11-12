@@ -21,6 +21,58 @@ logger = get_logger(__name__)
 ENTREP_MEAN = [0.485, 0.456, 0.406]
 ENTREP_STD = [0.229, 0.224, 0.225]
 
+# Clinical prompts for each ENT anatomical region
+ENTREP_CLASS_PROMPTS = {
+    'vocal-throat': [
+        "vocal cords visualized",
+        "vocal cord edema",
+        "vocal cord erythema",
+        "vocal cord thickening",
+        "glottic edema",
+        "supraglottic swelling",
+        "interarytenoid edema",
+        "tonsillar enlargement",
+        "oropharyngeal mucosa normal",
+        "no tonsillar exudate"
+    ],
+    'nose': [
+        "nasal mucosa erythema",
+        "nasal turbinate hypertrophy",
+        "nasal discharge",
+        "septal deviation",
+        "pale nasal mucosa",
+        "mucus in nasal cavity",
+        "inferior turbinate enlarged",
+        "nasal airway patent",
+        "visualized nasal cavity",
+        "no purulent discharge"
+    ],
+    'ear': [
+        "tympanic membrane intact",
+        "tympanic membrane erythema",
+        "tympanic membrane bulging",
+        "auditory canal edema",
+        "ear canal discharge",
+        "cerumen present",
+        "external auditory canal clear",
+        "tympanic membrane thickened",
+        "no middle ear effusion",
+        "auditory canal normal"
+    ],
+    'throat': [
+        "tonsillar edema",
+        "pharyngeal erythema",
+        "posterior oropharynx edema",
+        "mucus in oropharynx",
+        "oropharyngeal discharge",
+        "uvula midline",
+        "posterior pharyngeal wall erythema",
+        "oropharynx clear",
+        "no tonsillar hypertrophy",
+        "mucosa moist and pink"
+    ]
+}
+
 def load_model_from_checkpoint(checkpoint_path: str, config_path: str = None):
     """
     Load model từ checkpoint sử dụng ModelFactory
@@ -97,8 +149,21 @@ def get_ground_truth_labels(row, class_names):
     return labels
 
 
-def evaluate_single_image(model, image_path, class_names, device, transform=None):
-    """Đánh giá một ảnh với tất cả classes"""
+def evaluate_single_image(model, image_path, class_names, device, transform=None, use_clinical_prompts=True):
+    """
+    Đánh giá một ảnh với tất cả classes
+    
+    Args:
+        model: Model để evaluation
+        image_path: Đường dẫn đến ảnh
+        class_names: Danh sách tên classes
+        device: Device (cuda/cpu)
+        transform: Transform cho ảnh
+        use_clinical_prompts: Sử dụng clinical prompts (True) hoặc generic prompts (False)
+    
+    Returns:
+        Dict chứa logits, probabilities, prediction, similarities
+    """
     # Load ảnh
     image = load_and_preprocess_image(image_path, transform)
     if image is None:
@@ -108,10 +173,35 @@ def evaluate_single_image(model, image_path, class_names, device, transform=None
     
     # Tạo text prompts cho tất cả classes
     text_prompts = []
-    for class_name in class_names:
-        text_prompts.append(f"endoscopic image of {class_name}")
-        text_prompts.append(f"medical image showing {class_name}")
-        text_prompts.append(f"clinical image of {class_name}")
+    prompts_per_class = []
+    
+    if use_clinical_prompts:
+        # Sử dụng clinical prompts chi tiết
+        for class_name in class_names:
+            if class_name in ENTREP_CLASS_PROMPTS:
+                class_prompts = ENTREP_CLASS_PROMPTS[class_name]
+                prompts_per_class.append(len(class_prompts))
+                text_prompts.extend(class_prompts)
+            else:
+                # Fallback to generic prompts nếu không có clinical prompts
+                logger.warning(f"No clinical prompts found for {class_name}, using generic prompts")
+                generic_prompts = [
+                    f"endoscopic image of {class_name}",
+                    f"medical image showing {class_name}",
+                    f"clinical image of {class_name}"
+                ]
+                prompts_per_class.append(len(generic_prompts))
+                text_prompts.extend(generic_prompts)
+    else:
+        # Sử dụng generic prompts
+        for class_name in class_names:
+            generic_prompts = [
+                f"endoscopic image of {class_name}",
+                f"medical image showing {class_name}",
+                f"clinical image of {class_name}"
+            ]
+            prompts_per_class.append(len(generic_prompts))
+            text_prompts.extend(generic_prompts)
     
     with torch.no_grad():
         # Encode image
@@ -130,9 +220,19 @@ def evaluate_single_image(model, image_path, class_names, device, transform=None
         # Compute similarities
         similarities = torch.matmul(image_features, text_features.t())
         
-        # Aggregate similarities per class (3 templates per class)
-        similarities = similarities.view(1, len(class_names), 3)
-        logits = similarities.mean(dim=-1)  # Average over templates
+        # Aggregate similarities per class
+        # Handle different number of prompts per class
+        similarities_list = []
+        start_idx = 0
+        for num_prompts in prompts_per_class:
+            end_idx = start_idx + num_prompts
+            class_similarities = similarities[:, start_idx:end_idx]
+            # Average over prompts for this class
+            avg_similarity = class_similarities.mean(dim=-1, keepdim=True)
+            similarities_list.append(avg_similarity)
+            start_idx = end_idx
+        
+        logits = torch.cat(similarities_list, dim=-1)
         
         # Get probabilities and predictions
         probabilities = torch.softmax(logits, dim=-1)
@@ -142,7 +242,7 @@ def evaluate_single_image(model, image_path, class_names, device, transform=None
             'logits': logits.cpu().numpy()[0],
             'probabilities': probabilities.cpu().numpy()[0],
             'prediction': prediction.cpu().numpy()[0],
-            'similarities': similarities.cpu().numpy()[0]
+            'num_prompts_per_class': prompts_per_class
         }
 
 
@@ -154,8 +254,15 @@ def main():
     parser.add_argument('--output', type=str, default='evaluation_results.json', help='Output file')
     parser.add_argument('--device', type=str, default='cuda', help='Device')
     parser.add_argument('--save_predictions', action='store_true', help='Save detailed predictions')
+    parser.add_argument('--use_clinical_prompts', action='store_true', default=True, 
+                        help='Use clinical prompts (default: True)')
+    parser.add_argument('--use_generic_prompts', action='store_true', 
+                        help='Use generic prompts instead of clinical prompts')
     
     args = parser.parse_args()
+    
+    # Determine which prompts to use
+    use_clinical_prompts = args.use_clinical_prompts and not args.use_generic_prompts
     
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
     logger.info(f"🔧 Using device: {device}")
@@ -188,7 +295,13 @@ def main():
         all_logits = []
         detailed_results = []
         
-        logger.info("🔄 Evaluating each test case...")
+        prompt_type = "clinical" if use_clinical_prompts else "generic"
+        logger.info(f"🔄 Evaluating each test case using {prompt_type} prompts...")
+        logger.info(f"📝 Prompt details:")
+        if use_clinical_prompts:
+            for class_name in class_names:
+                if class_name in ENTREP_CLASS_PROMPTS:
+                    logger.info(f"  {class_name}: {len(ENTREP_CLASS_PROMPTS[class_name])} prompts")
         
         for idx, row in df.iterrows():
             image_path = row['image_path']
@@ -199,7 +312,7 @@ def main():
             gt_class_idx = gt_labels.index(1) if 1 in gt_labels else -1
             
             # Đánh giá ảnh
-            result = evaluate_single_image(model, image_path, class_names, device, transform)
+            result = evaluate_single_image(model, image_path, class_names, device, transform, use_clinical_prompts)
             
             if result is not None:
                 prediction = result['prediction']
@@ -275,7 +388,11 @@ def main():
             'classification_report': class_report,
             'class_names': class_names,
             'num_test_cases': len(df),
-            'successful_predictions': len(all_predictions)
+            'successful_predictions': len(all_predictions),
+            'prompt_type': 'clinical' if use_clinical_prompts else 'generic',
+            'prompts_used': {class_name: ENTREP_CLASS_PROMPTS[class_name] 
+                           for class_name in class_names 
+                           if use_clinical_prompts and class_name in ENTREP_CLASS_PROMPTS}
         }
         
         if args.save_predictions:
