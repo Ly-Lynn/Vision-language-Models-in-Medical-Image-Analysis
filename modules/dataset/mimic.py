@@ -64,17 +64,17 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
 
             # Get train split
             if self.split == 'train':
-                data = pd.read_csv(self.data_root, 'train.csv')
+                data = pd.read_csv(os.path.join(self.data_root, 'train.csv'))
 
             elif self.split == 'val':
-                data = pd.read_csv(self.data_root, 'val.csv')
+                data = pd.read_csv(os.path.join(self.data_root, 'val.csv'))
             else:
                 raise ValueError(f"Invalid split: {self.split}")
-                
+            data = data[:1000]
             # Convert to DataFrame
             df = pd.DataFrame({
-                'image': data['image'],
-                'caption': data['caption']
+                'image': [Image.open(img_path) for img_path in data['file_path'].tolist()],
+                'caption': data['caption'].tolist()
             })
             
             # Filter out empty findings
