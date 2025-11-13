@@ -300,11 +300,6 @@ class VisionLanguageTrainer:
                 # Prepare model inputs (handle different model interfaces)
                 model_inputs = self._prepare_model_inputs(batch)
                 
-                # Debug: log first batch inputs
-                if batch_idx == 0:
-                    logger.info(f"First batch - Model input keys: {model_inputs.keys()}")
-                    logger.info(f"Batch keys: {batch.keys()}")
-                
                 # Forward pass with mixed precision
                 if use_amp:
                     with torch.cuda.amp.autocast():
@@ -374,7 +369,7 @@ class VisionLanguageTrainer:
             model_inputs['attention_mask'] = batch['attention_mask']
         if 'texts' in batch:
             model_inputs['texts'] = batch['texts']
-        elif 'text' in batch:  # MIMIC collator returns 'text' not 'texts'
+        elif 'text' in batch:  
             model_inputs['texts'] = batch['text']
             
         return model_inputs
@@ -397,9 +392,6 @@ class VisionLanguageTrainer:
         if isinstance(outputs, torch.Tensor):
             return outputs
         elif isinstance(outputs, dict):
-            # Debug: print output keys
-            logger.info(f"Model output keys: {outputs.keys()}")
-            
             # Try different loss keys
             loss = None
             if 'loss_value' in outputs:
@@ -416,7 +408,6 @@ class VisionLanguageTrainer:
             if not isinstance(loss, torch.Tensor):
                 raise ValueError(f"Loss must be a Tensor, got {type(loss)}: {loss}")
                 
-            logger.info(f"Extracted loss: {loss.item() if loss.numel() == 1 else loss.shape}")
             return loss
         else:
             raise ValueError(f"Unexpected output type: {type(outputs)}")
