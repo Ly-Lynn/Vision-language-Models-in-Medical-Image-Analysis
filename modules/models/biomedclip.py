@@ -20,6 +20,7 @@ class BioMedCLIPModel(VisionLanguageModel):
     def __init__(
         self,
         model_name: str = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
+        vision_pretrained = None,
         context_length: int = 256,
         checkpoint=None
     ):
@@ -42,7 +43,10 @@ class BioMedCLIPModel(VisionLanguageModel):
         
         print("preproccess: ", self.preprocess)
         # raise
-        
+        if checkpoint is not None:
+            self.load_checkpoint(checkpoint)
+        if vision_pretrained is not None:
+            self.model.visual.load_state_dict(torch.load(vision_pretrained, map_location=self.device), strict=False)
         # Move model to device
         self.model = self.model.to(self.device)
         
