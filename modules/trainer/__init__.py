@@ -7,9 +7,8 @@ Supports:
 - BioMedCLIP Model
 """
 
-from .entrep import (
+from .vlm_trainer import (
     VisionLanguageTrainer,
-    ENTRepTrainer,  # Backward compatibility
     create_trainer_for_entrep,
     create_trainer_for_medclip,
     create_trainer_for_biomedclip,
@@ -17,7 +16,6 @@ from .entrep import (
 
 __all__ = [
     'VisionLanguageTrainer',
-    'ENTRepTrainer',
     'create_trainer_for_entrep',
     'create_trainer_for_medclip',
     'create_trainer_for_biomedclip',
