@@ -18,3 +18,5 @@ seaborn
 datasets
 nltk
 gdown
+kagglehub
+wandb
