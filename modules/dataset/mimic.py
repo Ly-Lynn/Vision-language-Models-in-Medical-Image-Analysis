@@ -70,10 +70,9 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
                 data = pd.read_csv(os.path.join(self.data_root, 'val.csv'))
             else:
                 raise ValueError(f"Invalid split: {self.split}")
-            data = data[:1000]
             # Convert to DataFrame
             df = pd.DataFrame({
-                'image': [Image.open(img_path) for img_path in data['file_path'].tolist()],
+                'image': data['file_path'].tolist(),
                 'text': data['caption'].tolist()
             })
             
