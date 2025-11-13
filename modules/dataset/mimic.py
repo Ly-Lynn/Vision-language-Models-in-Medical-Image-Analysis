@@ -74,11 +74,11 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
             # Convert to DataFrame
             df = pd.DataFrame({
                 'image': [Image.open(img_path) for img_path in data['file_path'].tolist()],
-                'caption': data['caption'].tolist()
+                'text': data['caption'].tolist()
             })
             
             # Filter out empty findings
-            df = df[df['caption'].notna() & (df['caption'] != '')]
+            df = df[df['text'].notna() & (df['text'] != '')]
             df = df.reset_index(drop=True)
             
             logger.info(f"Loaded {len(df)} image-text pairs")
