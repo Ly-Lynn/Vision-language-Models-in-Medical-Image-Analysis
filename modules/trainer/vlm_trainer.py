@@ -737,7 +737,7 @@ class VisionLanguageTrainer:
             wandb.finish()
 
 
-# Example usage functions
+# Convenience functions for creating trainers
 def create_trainer_for_entrep(model, config, **kwargs):
     """
     Convenience function to create trainer for ENTRep model

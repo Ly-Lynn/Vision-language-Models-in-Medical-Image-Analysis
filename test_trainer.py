@@ -16,7 +16,6 @@ def test_trainer_initialization():
     try:
         from modules.trainer import (
             VisionLanguageTrainer,
-            ENTRepTrainer,
             create_trainer_for_entrep,
             create_trainer_for_medclip,
             create_trainer_for_biomedclip,
@@ -26,18 +25,8 @@ def test_trainer_initialization():
         print(f"   ❌ Import failed: {e}")
         return False
     
-    # Test backward compatibility
-    print("\n2️⃣  Testing backward compatibility...")
-    try:
-        assert VisionLanguageTrainer == VisionLanguageTrainer
-        assert ENTRepTrainer == VisionLanguageTrainer
-        print("   ✅ ENTRepTrainer alias works")
-    except Exception as e:
-        print(f"   ❌ Backward compatibility failed: {e}")
-        return False
-    
     # Test config
-    print("\n3️⃣  Testing configuration...")
+    print("\n2️⃣  Testing configuration...")
     test_config = {
         'model_type': 'test',
         'dataset': {
@@ -61,7 +50,7 @@ def test_trainer_initialization():
     print("   ✅ Test config created")
     
     # Test with dummy model
-    print("\n4️⃣  Testing with dummy model...")
+    print("\n3️⃣  Testing with dummy model...")
     try:
         class DummyModel(torch.nn.Module):
             def forward(self, pixel_values, input_ids=None, attention_mask=None, 
@@ -90,7 +79,7 @@ def test_trainer_initialization():
         return False
     
     # Test helper methods
-    print("\n5️⃣  Testing helper methods...")
+    print("\n4️⃣  Testing helper methods...")
     try:
         # Test _prepare_model_inputs
         batch = {
@@ -117,7 +106,7 @@ def test_trainer_initialization():
         return False
     
     # Test convenience functions
-    print("\n6️⃣  Testing convenience functions...")
+    print("\n5️⃣  Testing convenience functions...")
     try:
         trainer_entrep = create_trainer_for_entrep(dummy_model, test_config, use_wandb=False)
         trainer_medclip = create_trainer_for_medclip(dummy_model, test_config, use_wandb=False)

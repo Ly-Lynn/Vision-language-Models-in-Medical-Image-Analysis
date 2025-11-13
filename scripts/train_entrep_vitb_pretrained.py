@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.models.factory import create_model
-from modules.trainer.entrep import ENTRepTrainer
+from modules.trainer import VisionLanguageTrainer
 from modules.utils.logging_config import get_logger
 from modules.utils import constants
 
@@ -202,7 +202,7 @@ def main():
     
     # Tạo trainer
     logger.info("🎓 Creating trainer...")
-    trainer = ENTRepTrainer(
+    trainer = VisionLanguageTrainer(
         model=model,
         config=config,
         output_dir=config['experiment']['output_dir'],
