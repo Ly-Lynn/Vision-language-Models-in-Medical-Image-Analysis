@@ -72,10 +72,9 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
                 raise ValueError(f"Invalid split: {self.split}")
             # Convert to DataFrame
             df = pd.DataFrame({
-                'image': data['file_path'].tolist(),
+                'image_path': data['file_path'].tolist(),
                 'text': data['caption'].tolist()
             })
-            
             # Filter out empty findings
             df = df[df['text'].notna() & (df['text'] != '')]
             df = df.reset_index(drop=True)

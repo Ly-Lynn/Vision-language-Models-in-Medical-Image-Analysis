@@ -14,7 +14,7 @@ dataset:
   dataset_name: mimic  # mimic, entrep, covid, rsna
   dataset_type: contrastive  # contrastive or classification
   task_type: contrastive  # contrastive, zeroshot, supervised
-  data_root: modules/local_data
+  data_root: /network-volume/khoatn/mimic-cxr-dataset/
   model_type: biomedclip
   batch_size: 16  # Smaller batch for larger model
   num_workers: 4
