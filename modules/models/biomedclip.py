@@ -9,6 +9,7 @@ from collections import defaultdict
 from ..utils import constants
 import torch.nn.functional as F
 from .base import VisionLanguageModel
+from collections import OrderedDict
 
 
 class BioMedCLIPModel(VisionLanguageModel):
@@ -46,13 +47,30 @@ class BioMedCLIPModel(VisionLanguageModel):
         if checkpoint is not None:
             self.load_checkpoint(checkpoint)
         if vision_pretrained is not None:
-            self.model.visual.load_state_dict(torch.load(vision_pretrained, map_location=self.device), strict=False)
+            state_dict =torch.load(vision_pretrained)['model_state_dict']
+            
+            state_dict = self._strip_prefix_from_state_dict(state_dict)
+
+            incompatible_keys = self.model.visual.load_state_dict(state_dict, strict=True)
+            print(f"Incompatible keys {incompatible_keys}")
         # Move model to device
         self.model = self.model.to(self.device)
         
         # Set model to eval mode by default
         self.model.eval()
-    
+    def _strip_prefix_from_state_dict(self, sd, prefixes=('visual.', 'module.', 'model.')):
+
+        if isinstance(sd, dict) and 'state_dict' in sd and isinstance(sd['state_dict'], dict):
+            sd = sd['state_dict']
+
+        new_sd = OrderedDict()
+        for k, v in sd.items():
+            nk = k
+            for p in prefixes:
+                if nk.startswith(p):
+                    nk = nk[len(p):]
+            new_sd[nk] = v
+        return new_sd
     def load_checkpoint(self, checkpoint_path: str, strict: bool = False):
         """Load model weights from checkpoint."""
         if not checkpoint_path:
