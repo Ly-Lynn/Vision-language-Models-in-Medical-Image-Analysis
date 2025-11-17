@@ -35,23 +35,28 @@ class CLIPTextEncoder(TextEncoder):
         
         if pretrained:
             try:
-                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                                             use_safetensors=True, 
-                                            #  local_files_only=True,
-                                            #  trust_remote_code=True
-                                             )
+                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
+                                use_safetensors=True, 
+                                local_files_only=True,
+                                trust_remote_code=True
+                                )
+                # self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
+                #                              use_safetensors=True, 
+                #                              local_files_only=True,
+                #                              trust_remote_code=True
+                                            #  )
             except:
                 # Fallback if safetensors fails
-                # self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                #                              use_safetensors=False, 
+                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
+                                             use_safetensors=False, 
+                                             local_files_only=True,
+                                             trust_remote_code=True
+                                             )
+                # self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
+                #                              use_safetensors=True, 
                 #                             #  local_files_only=True,
                 #                             #  trust_remote_code=True
                 #                              )
-                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                                             use_safetensors=True, 
-                                            #  local_files_only=True,
-                                            #  trust_remote_code=True
-                                             )
         else:
             from transformers import AutoConfig
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
