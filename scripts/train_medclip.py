@@ -209,7 +209,6 @@ def main():
         logger.info(f"\n📊 Training Summary:")
         logger.info(f"   Best validation loss: {trainer.best_val_loss:.4f}")
         logger.info(f"   Total epochs: {config['training']['num_epochs']}")
-        logger.info(f"   Final learning rate: {trainer.optimizer.param_groups[0]['lr']:.2e}")
         logger.info(f"\n💾 Checkpoints saved to: {trainer.checkpoint_dir}")
         logger.info(f"   Best model: {os.path.join(trainer.checkpoint_dir, 'best_model.pth')}")
         logger.info(f"   Final model: {os.path.join(trainer.checkpoint_dir, 'final_model.pth')}")
