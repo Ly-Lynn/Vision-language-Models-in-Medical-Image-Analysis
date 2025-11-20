@@ -1,16 +1,22 @@
 {
   "Pneumonia": [
-    "focal mycoplasma at the right lung base",
-    "early viral at the right lower lobe",
-    "multifocal at the right middle lobe",
-    "small mycoplasma at the right lung base",
-    "multifocal at the upper lung zone"
+    "lung opacities",
+    "focal consolidation",
+    "patchy airspace opacity",
+    "increased lung density",
+    "pulmonary infiltrates",
+    "interstitial opacity",
+    "alveolar opacity",
+    "pleural effusion",
+    "parenchymal opacity"
   ],
   "Normal": [
-    "clear findings image",
-    "healthy chest radiograph",
-    "normal lungs x-ray",
-    "normal findings x-ray",
-    "normal findings image"
+    "lungs clear",
+    "no focal consolidation",
+    "no pleural effusion",
+    "no pulmonary edema",
+    "no lung opacity",
+    "normal chest radiograph",
+    "no pulmonary"
   ]
 }
