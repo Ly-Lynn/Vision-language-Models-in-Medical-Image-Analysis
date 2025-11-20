@@ -55,14 +55,11 @@ class BaseMedicalDataset(Dataset, ABC):
         self.model_type = model_type
 
 
-        # khoa'fix
-        # # Set default transforms
-        # if transform is None:
-        #     self.transform = self._get_default_transform() # sửa lại cáinày
-        # else:
-        #     self.transform = transform
-        
-        self.transform = transform
+        # Set transforms
+        if transform is None:
+            self.transform = self._get_default_transform()
+        else:
+            self.transform = transform
         
             
         # Load data
@@ -92,7 +89,16 @@ class BaseMedicalDataset(Dataset, ABC):
         pass
         
     def _get_default_transform(self) -> transforms.Compose:
-        """Get default image transforms"""
+        """Get default image transforms based on model_type"""
+        from ..utils.constants import MODEL_TRANSFORMS
+        
+        # Use model-specific transform if available
+        if self.model_type in MODEL_TRANSFORMS:
+            logger.info(f"Using {self.model_type} default transform")
+            return MODEL_TRANSFORMS[self.model_type]
+        
+        # Fallback to generic transform
+        logger.warning(f"Model type {self.model_type} not in MODEL_TRANSFORMS, using generic transform")
         return transforms.Compose([
             transforms.Resize((IMG_SIZE, IMG_SIZE)),
             transforms.ToTensor(),

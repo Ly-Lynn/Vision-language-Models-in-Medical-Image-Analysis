@@ -61,23 +61,22 @@ class MIMICContrastiveDataset(BaseContrastiveDataset):
             if not os.path.exists(self.data_root):
                 raise FileNotFoundError(f"MIMIC data not found in root {self.data_root}")
             logger.info(f"Loading MIMIC data from {self.data_root}")
-            dataset = load_from_disk(self.data_root)
-            
+
             # Get train split
-            if self.split in dataset:
-                data = dataset[self.split]
+            if self.split == 'train':
+                data = pd.read_csv(os.path.join(self.data_root, 'train.csv'))
+
+            elif self.split == 'val':
+                data = pd.read_csv(os.path.join(self.data_root, 'val.csv'))
             else:
-                logger.warning(f"Split '{self.split}' not found, using 'train'")
-                data = dataset['train']
-                
+                raise ValueError(f"Invalid split: {self.split}")
             # Convert to DataFrame
             df = pd.DataFrame({
-                'image': data['image'],
-                'findings': data['findings']
+                'image_path': data['file_path'].tolist(),
+                'text': data['caption'].tolist()
             })
-            
             # Filter out empty findings
-            df = df[df['findings'].notna() & (df['findings'] != '')]
+            df = df[df['text'].notna() & (df['text'] != '')]
             df = df.reset_index(drop=True)
             
             logger.info(f"Loaded {len(df)} image-text pairs")

@@ -125,9 +125,9 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
         
         os.makedirs(self.data_root, exist_ok=True)
-        entrep_data_path = os.path.join(self.data_root, 'entrep')
-        # print("Entrep data path: ", entrep_data_path)
-        # input()
+        
+        # data_root is already 'local_data/entrep', no need to add 'entrep' again
+        entrep_data_path = self.data_root
         
         # Check if required files exist
         data_csv_path = os.path.join(entrep_data_path, "entrep-data.csv")
@@ -140,15 +140,15 @@ class ENTREPDataset(BaseContrastiveDataset):
                 logger.warning("Failed to download ENTREP data")
         
         # Load appropriate split
-        # if self.split == 'train':
-        #     csv_path = train_csv_path
-        # elif self.split == 'test':
-        #     csv_path = test_csv_path
-        # elif self.split == 'val':
-        #     csv_path = val_csv_path
-        # else:
-        #     raise ValueError(f"Invalid split: {self.split}")
-        csv_path = data_csv_path    
+        if self.split == 'train':
+            csv_path = train_csv_path
+        elif self.split == 'test':
+            csv_path = test_csv_path
+        elif self.split == 'val':
+            csv_path = val_csv_path
+        else:
+            raise ValueError(f"Invalid split: {self.split}")
+        # csv_path = data_csv_path    
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"Data file not found: {csv_path}")
             
@@ -182,27 +182,24 @@ class ENTREPDataset(BaseContrastiveDataset):
         
         # Load image
         img_path = row['image_path']
-
-        # img = self._load_image(img_path)
         img = Image.open(img_path)
-        labels = {
-            'vocal-throat': int(row['vocal-throat']),
-            'nose': int(row['nose']),
-            'ear': int(row['ear']),
-            'throat': int(row['throat']),
-        }
         
-        # Apply transforms
-        # if self.transform:
-        #     img_tensor = self.transform(img)
-        # else:
-        #     img_tensor = transforms.ToTensor()(img)
+        # Apply transforms - Transform PIL Image thành Tensor
+        if self.transform:
+            img_tensor = self.transform(img)
+        else:
+            # Default transform nếu không có transform được cung cấp
+            img_tensor = transforms.Compose([
+                transforms.Lambda(lambda x: x.convert("RGB")),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor()
+            ])(img)
             
-        # # Add channel dimension if needed
-        # if img_tensor.dim() == 2:
-        #     img_tensor = img_tensor.unsqueeze(0)
+        # Add channel dimension if needed
+        if img_tensor.dim() == 2:
+            img_tensor = img_tensor.unsqueeze(0)
             
-        # Get text description
+        # Get text description for contrastive learning
         # Ưu tiên sử dụng description từ CSV nếu có
         if 'description' in row and pd.notna(row['description']):
             text = str(row['description'])
@@ -220,8 +217,8 @@ class ENTREPDataset(BaseContrastiveDataset):
             else:
                 text = "Endoscopic image"
             
-        # return img_tensor, text
-        return img, labels
+        # Return tensor và text cho contrastive learning
+        return img_tensor, text
     
     def get_class_prompts(self) -> Dict[str, List[str]]:
         """Return class prompts for zero-shot classification"""

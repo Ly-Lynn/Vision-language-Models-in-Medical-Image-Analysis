@@ -35,28 +35,16 @@ class CLIPTextEncoder(TextEncoder):
         
         if pretrained:
             try:
-                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
-                                use_safetensors=True, 
-                                local_files_only=True,
-                                trust_remote_code=True
-                                )
-                # self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                #                              use_safetensors=True, 
-                #                              local_files_only=True,
-                #                              trust_remote_code=True
-                                            #  )
-            except:
-                # Fallback if safetensors fails
-                self.text_model = AutoModelForMaskedLM.from_pretrained("local_model/clinical_bert", 
+                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
                                              use_safetensors=False, 
-                                             local_files_only=True,
-                                             trust_remote_code=True
+                                            #  local_files_only=True,
+                                            #  trust_remote_code=True
                                              )
-                # self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT", 
-                #                              use_safetensors=True, 
-                #                             #  local_files_only=True,
-                #                             #  trust_remote_code=True
-                #                              )
+            except Exception as e:
+                # Fallback if loading fails
+                logger.warning(f"Failed to load ClinicalBERT with safetensors=False: {e}")
+                logger.info("Trying alternative loading method...")
+                self.text_model = AutoModelForMaskedLM.from_pretrained("medicalai/ClinicalBERT")
         else:
             from transformers import AutoConfig
             config = AutoConfig.from_pretrained("medicalai/ClinicalBERT")
@@ -585,13 +573,17 @@ class ENTRepModel(nn.Module):
         # Logit scale parameter for contrastive learning
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
         
-        # Load full ENTRep checkpoint nếu có (ưu tiên cao nhất)
-
-        if checkpoint:
-            self._load_full_checkpoint(checkpoint)
+        if pretrained:
+            if checkpoint:
+                self._load_full_checkpoint(checkpoint)
+            else:
+                logger.info("⚠️  pretrained=True but no checkpoint provided, downloading default checkpoint...")
+                ckp = self.download_checkpoint()
+                self._load_full_checkpoint(ckp)
         else:
-            ckp = self.download_checkpoint()
-            self._load_full_checkpoint(ckp)
+            logger.info("✅ Training from scratch (pretrained=False), skipping checkpoint loading")
+            logger.info("   All weights are randomly initialized")
+            
         logger.info(f"✅ ENTRepModel created with {vision_encoder_type} vision encoder")
         if self.text_model:
             logger.info(f"✅ Text encoder: {text_encoder_type}")
@@ -718,13 +710,34 @@ class ENTRepModel(nn.Module):
             return_tensors='pt'
         )
         text_inputs = {k: v.cuda() for k, v in text_inputs.items()}
-        text_features =self.text_model(
+        text_features = self.text_model(
             text_inputs['input_ids'], 
             text_inputs['attention_mask'],
             return_features=False
         )
         
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        
+        return text_features
+    
+    def encode_text_from_tokens(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        normalize: bool = True
+    ):
+        """
+        Encode text from pre-tokenized input_ids
+        Used for training with collated batches
+        """
+        text_features = self.text_model(
+            input_ids, 
+            attention_mask,
+            return_features=False
+        )
+        
+        if normalize:
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
         
         return text_features
         
@@ -832,7 +845,8 @@ class ENTRepModel(nn.Module):
         
         # Encode text if available
         if self.text_model is not None and input_ids is not None:
-            text_embeds = self.encode_text(input_ids, attention_mask)
+            # Use encode_text_from_tokens for pre-tokenized inputs
+            text_embeds = self.encode_text_from_tokens(input_ids, attention_mask)
         else:
             text_embeds = None
 

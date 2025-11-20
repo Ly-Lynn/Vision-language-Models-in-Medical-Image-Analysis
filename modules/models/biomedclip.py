@@ -9,6 +9,7 @@ from collections import defaultdict
 from ..utils import constants
 import torch.nn.functional as F
 from .base import VisionLanguageModel
+from collections import OrderedDict
 
 
 class BioMedCLIPModel(VisionLanguageModel):
@@ -20,6 +21,7 @@ class BioMedCLIPModel(VisionLanguageModel):
     def __init__(
         self,
         model_name: str = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224',
+        vision_pretrained = None,
         context_length: int = 256,
         checkpoint=None
     ):
@@ -42,13 +44,33 @@ class BioMedCLIPModel(VisionLanguageModel):
         
         print("preproccess: ", self.preprocess)
         # raise
-        
+        if checkpoint is not None:
+            self.load_checkpoint(checkpoint)
+        if vision_pretrained is not None:
+            state_dict =torch.load(vision_pretrained)['model_state_dict']
+            
+            state_dict = self._strip_prefix_from_state_dict(state_dict)
+
+            incompatible_keys = self.model.visual.load_state_dict(state_dict, strict=True)
+            print(f"Incompatible keys {incompatible_keys}")
         # Move model to device
         self.model = self.model.to(self.device)
         
         # Set model to eval mode by default
         self.model.eval()
-    
+    def _strip_prefix_from_state_dict(self, sd, prefixes=('visual.', 'module.', 'model.')):
+
+        if isinstance(sd, dict) and 'state_dict' in sd and isinstance(sd['state_dict'], dict):
+            sd = sd['state_dict']
+
+        new_sd = OrderedDict()
+        for k, v in sd.items():
+            nk = k
+            for p in prefixes:
+                if nk.startswith(p):
+                    nk = nk[len(p):]
+            new_sd[nk] = v
+        return new_sd
     def load_checkpoint(self, checkpoint_path: str, strict: bool = False):
         """Load model weights from checkpoint."""
         if not checkpoint_path:
@@ -90,8 +112,11 @@ class BioMedCLIPModel(VisionLanguageModel):
         text_tokens = self.tokenizer(texts, context_length=self.context_length)
         text_tokens = text_tokens.to(self.device)
         
-        # Encode texts
-        with torch.no_grad():
+        # Encode texts (no_grad only if model is in eval mode)
+        if not self.model.training:
+            with torch.no_grad():
+                text_features = self.model.encode_text(text_tokens)
+        else:
             text_features = self.model.encode_text(text_tokens)
         
         if normalize:
@@ -125,11 +150,12 @@ class BioMedCLIPModel(VisionLanguageModel):
         else:
             # Assume tensor input
             image_tensors = images.to(self.device)
-            
-            
         
-        # Encode images
-        with torch.no_grad():
+        # Encode images (no_grad only if model is in eval mode)
+        if not self.model.training:
+            with torch.no_grad():
+                image_features = self.model.encode_image(image_tensors)
+        else:
             image_features = self.model.encode_image(image_tensors)
         
         if normalize:
@@ -234,40 +260,39 @@ class BioMedCLIPModel(VisionLanguageModel):
             input_ids = input_ids.to(self.device)
         
         # Forward pass through the model
-        with torch.no_grad():
-            if images is not None and input_ids is not None:
-                # Both image and text inputs
-                image_features = self.model.encode_image(images)
-                text_features = self.model.encode_text(input_ids)
-                
-                # Get logit scale
-                logit_scale = self.model.logit_scale.exp()
-                
-                # Normalize features
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                
-                # Compute similarity logits
-                logits_per_image = logit_scale * image_features @ text_features.t()
-                logits_per_text = logits_per_image.t()
-                
-            elif images is not None:
-                # Only image inputs
-                image_features = self.model.encode_image(images)
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                text_features = None
-                logits_per_image = None
-                logits_per_text = None
-                
-            elif input_ids is not None:
-                # Only text inputs
-                text_features = self.model.encode_text(input_ids)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                image_features = None
-                logits_per_image = None
-                logits_per_text = None
-            else:
-                raise ValueError("Either images or texts must be provided")
+        if images is not None and input_ids is not None:
+            # Both image and text inputs
+            image_features = self.model.encode_image(images)
+            text_features = self.model.encode_text(input_ids)
+            
+            # Get logit scale
+            logit_scale = self.model.logit_scale.exp()
+            
+            # Normalize features
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            
+            # Compute similarity logits
+            logits_per_image = logit_scale * image_features @ text_features.t()
+            logits_per_text = logits_per_image.t()
+            
+        elif images is not None:
+            # Only image inputs
+            image_features = self.model.encode_image(images)
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            text_features = None
+            logits_per_image = None
+            logits_per_text = None
+            
+        elif input_ids is not None:
+            # Only text inputs
+            text_features = self.model.encode_text(input_ids)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            image_features = None
+            logits_per_image = None
+            logits_per_text = None
+        else:
+            raise ValueError("Either images or texts must be provided")
         
         loss = None
         if return_loss and logits_per_image is not None:

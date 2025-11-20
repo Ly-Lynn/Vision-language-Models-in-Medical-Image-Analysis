@@ -19,17 +19,21 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 
-from ..models.entrep import ENTRepModel
-from ..dataset.entrep import create_entrep_dataloader
+from ..dataset.factory import DatasetFactory
 from ..utils.logging_config import get_logger
 from ..utils.helpers import setup_seed
 
 logger = get_logger(__name__)
 
 
-class ENTRepTrainer:
+class VisionLanguageTrainer:
     """
-    Trainer for ENTRep model with contrastive learning
+    General trainer for Vision-Language Models with contrastive learning
+    
+    Supports:
+    - ENTRep Model
+    - MedCLIP Model  
+    - BioMedCLIP Model
     
     Features:
     - Contrastive learning với CLIP loss
@@ -38,26 +42,31 @@ class ENTRepTrainer:
     - Checkpoint saving/loading
     - WandB logging support
     - Validation tracking
+    - Flexible dataset support (MIMIC, COVID, RSNA, ENTREP)
     """
     
     def __init__(
         self,
-        model: ENTRepModel,
+        model: nn.Module,
         config: Dict[str, Any],
         device: Optional[torch.device] = None,
         output_dir: str = './checkpoints',
         experiment_name: Optional[str] = None,
         use_wandb: bool = False,
-        wandb_project: str = 'entrep-training',
+        wandb_project: str = 'vlm-training',
         seed: int = 42,
         **kwargs
     ):
         """
-        Initialize ENTRep trainer
+        Initialize Vision-Language Model trainer
         
         Args:
-            model: ENTRepModel instance
-            config: Training configuration dict
+            model: Vision-Language Model instance (ENTRepModel, MedCLIPModel, BioMedCLIPModel)
+            config: Training configuration dict containing:
+                - dataset: dataset config (dataset_name, model_type, batch_size, etc.)
+                - optimizer: optimizer config (type, lr, weight_decay, etc.)
+                - scheduler: scheduler config (type, T_max, etc.)
+                - training: training config (num_epochs, use_amp, etc.)
             device: Device to use (auto-detect if None)
             output_dir: Directory for checkpoints
             experiment_name: Name for experiment
@@ -90,7 +99,10 @@ class ENTRepTrainer:
         # Output directory
         self.output_dir = Path(output_dir)
         if experiment_name is None:
-            experiment_name = f"entrep_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            # Auto-generate experiment name from model and dataset
+            model_name = config.get('model_type', 'vlm')
+            dataset_name = config.get('dataset', {}).get('dataset_name', 'data')
+            experiment_name = f"{model_name}_{dataset_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.experiment_name = experiment_name
         self.checkpoint_dir = self.output_dir / experiment_name
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -197,38 +209,63 @@ class ENTRepTrainer:
         return scheduler
         
     def create_dataloaders(self) -> Dict[str, DataLoader]:
-        """Create train and validation dataloaders"""
+        """
+        Create train and validation dataloaders using DatasetFactory
+        
+        Supports multiple datasets: MIMIC, COVID, RSNA, ENTREP
+        """
         dataset_config = self.config.get('dataset', {})
         
         # Common config
-        data_root = dataset_config.get('data_root', 'local_data/entrep')
+        dataset_name = dataset_config.get('dataset_name', 'entrep')
+        dataset_type = dataset_config.get('dataset_type', 'contrastive')
+        task_type = dataset_config.get('task_type', 'contrastive')
+        data_root = dataset_config.get('data_root', 'local_data')
         model_type = dataset_config.get('model_type', 'entrep')
         batch_size = dataset_config.get('batch_size', 32)
         num_workers = dataset_config.get('num_workers', 4)
         
+        # Additional kwargs for specific datasets
+        extra_kwargs = {}
+        if 'tokenizer_name' in dataset_config:
+            extra_kwargs['tokenizer_name'] = dataset_config['tokenizer_name']
+        if 'transform' in dataset_config:
+            extra_kwargs['transform'] = dataset_config['transform']
+            
+        logger.info(f"📊 Creating dataloaders for {dataset_name} dataset...")
+        logger.info(f"   Model type: {model_type}")
+        logger.info(f"   Dataset type: {dataset_type}")
+        logger.info(f"   Task type: {task_type}")
+        
         # Create train dataloader
-        train_loader = create_entrep_dataloader(
-            data_root=data_root,
-            split='train',
+        train_loader = DatasetFactory.create_dataloader(
+            dataset_name=dataset_name,
+            dataset_type=dataset_type,
+            task_type=task_type,
             model_type=model_type,
+            split='train',
+            data_root=data_root,
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
-            tokenizer_name=dataset_config.get('tokenizer_name', None)
+            **extra_kwargs
         )
         
         # Create validation dataloader
-        val_loader = create_entrep_dataloader(
-            data_root=data_root,
-            split='val',
+        val_loader = DatasetFactory.create_dataloader(
+            dataset_name=dataset_name,
+            dataset_type=dataset_type,
+            task_type=task_type,
             model_type=model_type,
+            split='val',
+            data_root=data_root,
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
-            tokenizer_name=dataset_config.get('tokenizer_name', None)
+            **extra_kwargs
         )
         
-        logger.info(f"📊 Created dataloaders:")
+        logger.info(f"✅ Created dataloaders:")
         logger.info(f"   Train: {len(train_loader.dataset)} samples, {len(train_loader)} batches")
         logger.info(f"   Val: {len(val_loader.dataset)} samples, {len(val_loader)} batches")
         
@@ -244,7 +281,7 @@ class ENTRepTrainer:
         scheduler: Optional[_LRScheduler] = None,
         scaler: Optional[torch.cuda.amp.GradScaler] = None
     ) -> Dict[str, float]:
-        """Train for one epoch"""
+        """Train for one epoch - supports all Vision-Language Models"""
         self.model.train()
         
         total_loss = 0
@@ -260,24 +297,17 @@ class ENTRepTrainer:
                     if isinstance(value, torch.Tensor):
                         batch[key] = value.to(self.device)
                 
+                # Prepare model inputs (handle different model interfaces)
+                model_inputs = self._prepare_model_inputs(batch)
+                
                 # Forward pass with mixed precision
                 if use_amp:
                     with torch.cuda.amp.autocast():
-                        outputs = self.model(
-                            input_ids=batch.get('input_ids'),
-                            pixel_values=batch['pixel_values'],
-                            attention_mask=batch.get('attention_mask'),
-                            return_loss=True
-                        )
-                        loss = outputs['loss_value']
+                        outputs = self.model(**model_inputs)
+                        loss = self._extract_loss(outputs)
                 else:
-                    outputs = self.model(
-                        input_ids=batch.get('input_ids'),
-                        pixel_values=batch['pixel_values'],
-                        attention_mask=batch.get('attention_mask'),
-                        return_loss=True
-                    )
-                    loss = outputs['loss_value']
+                    outputs = self.model(**model_inputs)
+                    loss = self._extract_loss(outputs)
                 
                 # Backward pass
                 optimizer.zero_grad()
@@ -315,10 +345,76 @@ class ENTRepTrainer:
             
         avg_loss = total_loss / num_batches
         return {'loss': avg_loss}
+    
+    def _prepare_model_inputs(self, batch: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prepare inputs for different model types
+        
+        Args:
+            batch: Batch dict from dataloader
+            
+        Returns:
+            Model inputs dict
+        """
+        model_inputs = {
+            'pixel_values': batch['pixel_values'],
+            'return_loss': True
+        }
+        
+        # Add text inputs if available
+        # Handle different text input formats from different collators
+        if 'input_ids' in batch:
+            model_inputs['input_ids'] = batch['input_ids']
+        if 'attention_mask' in batch:
+            model_inputs['attention_mask'] = batch['attention_mask']
+        if 'texts' in batch:
+            model_inputs['texts'] = batch['texts']
+        elif 'text' in batch:  
+            model_inputs['texts'] = batch['text']
+            
+        return model_inputs
+    
+    def _extract_loss(self, outputs: Union[Dict, torch.Tensor]) -> torch.Tensor:
+        """
+        Extract loss from model outputs
+        
+        Different models return loss in different formats:
+        - ENTRep: outputs['loss_value']
+        - MedCLIP: outputs['loss_value'] or outputs['loss']
+        - BioMedCLIP: outputs['loss_value']
+        
+        Args:
+            outputs: Model outputs
+            
+        Returns:
+            Loss tensor
+        """
+        if isinstance(outputs, torch.Tensor):
+            return outputs
+        elif isinstance(outputs, dict):
+            # Try different loss keys
+            loss = None
+            if 'loss_value' in outputs:
+                loss = outputs['loss_value']
+            elif 'loss' in outputs:
+                loss = outputs['loss']
+            else:
+                raise ValueError(f"Cannot find loss in model outputs. Available keys: {outputs.keys()}")
+            
+            # Validate loss
+            if loss is None:
+                raise ValueError(f"Loss is None. Model may be in eval mode or return_loss=False. Outputs: {outputs.keys()}")
+            
+            if not isinstance(loss, torch.Tensor):
+                raise ValueError(f"Loss must be a Tensor, got {type(loss)}: {loss}")
+                
+            return loss
+        else:
+            raise ValueError(f"Unexpected output type: {type(outputs)}")
         
     @torch.no_grad()
     def validate(self, dataloader: DataLoader) -> Dict[str, float]:
-        """Validate model"""
+        """Validate model - supports all Vision-Language Models"""
         self.model.eval()
         
         total_loss = 0
@@ -329,15 +425,13 @@ class ENTRepTrainer:
             for key, value in batch.items():
                 if isinstance(value, torch.Tensor):
                     batch[key] = value.to(self.device)
+            
+            # Prepare model inputs
+            model_inputs = self._prepare_model_inputs(batch)
                     
             # Forward pass
-            outputs = self.model(
-                input_ids=batch.get('input_ids'),
-                pixel_values=batch['pixel_values'],
-                attention_mask=batch.get('attention_mask'),
-                return_loss=True
-            )
-            loss = outputs['loss_value']
+            outputs = self.model(**model_inputs)
+            loss = self._extract_loss(outputs)
             
             total_loss += loss.item()
             
@@ -654,3 +748,40 @@ class ENTRepTrainer:
         
         if self.use_wandb:
             wandb.finish()
+
+
+# Convenience functions for creating trainers
+def create_trainer_for_entrep(model, config, **kwargs):
+    """
+    Convenience function to create trainer for ENTRep model
+    
+    Args:
+        model: ENTRepModel instance
+        config: Training config
+        **kwargs: Additional trainer arguments
+    """
+    return VisionLanguageTrainer(model=model, config=config, **kwargs)
+
+
+def create_trainer_for_medclip(model, config, **kwargs):
+    """
+    Convenience function to create trainer for MedCLIP model
+    
+    Args:
+        model: MedCLIPModel instance
+        config: Training config
+        **kwargs: Additional trainer arguments
+    """
+    return VisionLanguageTrainer(model=model, config=config, **kwargs)
+
+
+def create_trainer_for_biomedclip(model, config, **kwargs):
+    """
+    Convenience function to create trainer for BioMedCLIP model
+    
+    Args:
+        model: BioMedCLIPModel instance
+        config: Training config
+        **kwargs: Additional trainer arguments
+    """
+    return VisionLanguageTrainer(model=model, config=config, **kwargs)

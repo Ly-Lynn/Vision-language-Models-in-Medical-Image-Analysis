@@ -130,6 +130,8 @@ class MedCLIPModel(VisionLanguageModel):
         vision_encoder_type='vit',
         checkpoint=None,
         vision_checkpoint=None,
+        vision_pretrained=None,  # New parameter for pretrained vision weights
+        text_pretrained=None,     # New parameter for pretrained text weights
         logit_scale_init_value=0.07,
         **kwargs
         ) -> None:
@@ -153,10 +155,17 @@ class MedCLIPModel(VisionLanguageModel):
         # learnable temperature for contrastive loss
         self.logit_scale = nn.Parameter(torch.log(torch.tensor(1/logit_scale_init_value)))
 
+        # Load full model checkpoint if provided
         if checkpoint is not None:
-            state_dict = torch.load(os.path.join(checkpoint, constants.WEIGHTS_NAME), map_location='cpu')
-            self.load_state_dict(state_dict, strict=False)
-            print('load model weight from:', checkpoint)
+            self.load_checkpoint(checkpoint)
+        
+        # Load vision-specific pretrained weights if provided
+        if vision_pretrained is not None:
+            self.load_vision_pretrained(vision_pretrained)
+        
+        # Load text-specific pretrained weights if provided
+        if text_pretrained is not None:
+            self.load_text_pretrained(text_pretrained)
     
         # proccessor (khoatn fix)
         self.preprocess = constants.MODEL_TRANSFORMS['medclip']
@@ -166,6 +175,9 @@ class MedCLIPModel(VisionLanguageModel):
             transforms.ToTensor(),                    # -> [0,1] float32, shape (C,H,W)
             self.normalize_transform,                 # Normalize(mean,std)
         ])
+        
+        # Move model to device
+        self.to(self.device)
     
     def _create_text_encoder(self, encoder_type: str):
         """Create text encoder based on type"""
@@ -190,6 +202,170 @@ class MedCLIPModel(VisionLanguageModel):
             'vision_encoder': self.vision_encoder_type,
             'vision_model_type': type(self.vision_model).__name__,
             'text_model_type': type(self.text_model).__name__
+        }
+    
+    def load_checkpoint(self, checkpoint_path: str, strict: bool = False):
+        """
+        Load full model weights from checkpoint.
+        
+        Args:
+            checkpoint_path: Path to the checkpoint file or directory
+            strict: Whether to strictly enforce that the keys in state_dict match
+        """
+        if os.path.isdir(checkpoint_path):
+            checkpoint_file = os.path.join(checkpoint_path, constants.WEIGHTS_NAME)
+        else:
+            checkpoint_file = checkpoint_path
+            
+        if os.path.exists(checkpoint_file):
+            state_dict = torch.load(checkpoint_file, map_location='cpu')
+            missing_keys, unexpected_keys = self.load_state_dict(state_dict, strict=strict)
+            
+            if missing_keys:
+                print(f"Missing keys: {missing_keys}")
+            if unexpected_keys:
+                print(f"Unexpected keys: {unexpected_keys}")
+                
+            print(f'✅ Loaded model weights from: {checkpoint_file}')
+        else:
+            raise FileNotFoundError(f"Checkpoint not found at {checkpoint_file}")
+    
+    def load_vision_pretrained(self, vision_pretrained_path: str, strict: bool = False):
+        """
+        Load pretrained vision encoder weights.
+        
+        Args:
+            vision_pretrained_path: Path to the pretrained vision weights
+            strict: Whether to strictly enforce that the keys match
+        """
+        if os.path.exists(vision_pretrained_path):
+            state_dict = torch.load(vision_pretrained_path, map_location='cpu')
+            
+            # Try to load directly first
+            try:
+                missing_keys, unexpected_keys = self.vision_model.load_state_dict(state_dict, strict=strict)
+            except RuntimeError:
+                # If direct loading fails, try to extract vision-specific weights
+                vision_state_dict = {}
+                for key, value in state_dict.items():
+                    if 'vision_model' in key:
+                        # Remove 'vision_model.' prefix if present
+                        new_key = key.replace('vision_model.', '')
+                        vision_state_dict[new_key] = value
+                    elif 'visual' in key or 'image' in key:
+                        vision_state_dict[key] = value
+                    else:
+                        # Try to load as-is for simple vision model weights
+                        vision_state_dict[key] = value
+                
+                missing_keys, unexpected_keys = self.vision_model.load_state_dict(vision_state_dict, strict=strict)
+            
+            if missing_keys:
+                print(f"Missing keys in vision model: {missing_keys}")
+            if unexpected_keys:
+                print(f"Unexpected keys in vision model: {unexpected_keys}")
+                
+            print(f'✅ Loaded vision pretrained weights from: {vision_pretrained_path}')
+        else:
+            raise FileNotFoundError(f"Vision pretrained weights not found at {vision_pretrained_path}")
+    
+    def load_text_pretrained(self, text_pretrained_path: str, strict: bool = False):
+        """
+        Load pretrained text encoder weights.
+        
+        Args:
+            text_pretrained_path: Path to the pretrained text weights
+            strict: Whether to strictly enforce that the keys match
+        """
+        if os.path.exists(text_pretrained_path):
+            state_dict = torch.load(text_pretrained_path, map_location='cpu')
+            
+            # Try to load directly first
+            try:
+                missing_keys, unexpected_keys = self.text_model.load_state_dict(state_dict, strict=strict)
+            except RuntimeError:
+                # If direct loading fails, try to extract text-specific weights
+                text_state_dict = {}
+                for key, value in state_dict.items():
+                    if 'text_model' in key:
+                        # Remove 'text_model.' prefix if present
+                        new_key = key.replace('text_model.', '')
+                        text_state_dict[new_key] = value
+                    elif 'text' in key or 'bert' in key:
+                        text_state_dict[key] = value
+                    else:
+                        # Try to load as-is for simple text model weights
+                        text_state_dict[key] = value
+                
+                missing_keys, unexpected_keys = self.text_model.load_state_dict(text_state_dict, strict=strict)
+            
+            if missing_keys:
+                print(f"Missing keys in text model: {missing_keys}")
+            if unexpected_keys:
+                print(f"Unexpected keys in text model: {unexpected_keys}")
+                
+            print(f'✅ Loaded text pretrained weights from: {text_pretrained_path}')
+        else:
+            raise FileNotFoundError(f"Text pretrained weights not found at {text_pretrained_path}")
+    
+    def save_pretrained(self, save_path: str):
+        """
+        Save model weights to a file or directory.
+        
+        Args:
+            save_path: Path to save the model weights
+        """
+        if os.path.isdir(save_path):
+            os.makedirs(save_path, exist_ok=True)
+            save_file = os.path.join(save_path, constants.WEIGHTS_NAME)
+        else:
+            # Ensure parent directory exists
+            os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+            save_file = save_path
+        
+        torch.save(self.state_dict(), save_file)
+        print(f'✅ Saved model weights to: {save_file}')
+    
+    def freeze_vision_encoder(self):
+        """Freeze vision encoder parameters."""
+        for param in self.vision_model.parameters():
+            param.requires_grad = False
+        print("Vision encoder frozen")
+    
+    def unfreeze_vision_encoder(self):
+        """Unfreeze vision encoder parameters."""
+        for param in self.vision_model.parameters():
+            param.requires_grad = True
+        print("Vision encoder unfrozen")
+    
+    def freeze_text_encoder(self):
+        """Freeze text encoder parameters."""
+        for param in self.text_model.parameters():
+            param.requires_grad = False
+        print("Text encoder frozen")
+    
+    def unfreeze_text_encoder(self):
+        """Unfreeze text encoder parameters."""
+        for param in self.text_model.parameters():
+            param.requires_grad = True
+        print("Text encoder unfrozen")
+    
+    def get_trainable_parameters(self) -> dict:
+        """Get information about trainable parameters."""
+        vision_trainable = sum(p.numel() for p in self.vision_model.parameters() if p.requires_grad)
+        vision_total = sum(p.numel() for p in self.vision_model.parameters())
+        text_trainable = sum(p.numel() for p in self.text_model.parameters() if p.requires_grad)
+        text_total = sum(p.numel() for p in self.text_model.parameters())
+        
+        return {
+            'vision_trainable': vision_trainable,
+            'vision_total': vision_total,
+            'vision_frozen': vision_total - vision_trainable,
+            'text_trainable': text_trainable,
+            'text_total': text_total,
+            'text_frozen': text_total - text_trainable,
+            'total_trainable': vision_trainable + text_trainable,
+            'total_parameters': vision_total + text_total
         }
 
     def from_pretrained(self, input_dir=None):

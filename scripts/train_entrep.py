@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 
 from modules.models.factory import create_model
-from modules.trainer.entrep import ENTRepTrainer
+from modules.trainer import VisionLanguageTrainer
 from modules.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -108,7 +108,7 @@ def main():
         **config.get('experiment', {})
     }
     
-    trainer = ENTRepTrainer(
+    trainer = VisionLanguageTrainer(
         model=model,
         config=config,
         output_dir=trainer_config.get('output_dir', './checkpoints'),
