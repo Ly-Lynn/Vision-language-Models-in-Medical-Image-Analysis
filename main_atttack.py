@@ -11,6 +11,8 @@ from modules.attack.util import seed_everything
 import os
 from torchvision import transforms
 import yaml
+import pandas as pd
+from PIL import Image
 
 _toTensor = transforms.ToTensor()
 def _extract_label(dict_label):
@@ -18,17 +20,41 @@ def _extract_label(dict_label):
         if is_gt == 1:
             return i
         
-
+def get_entrep_data(path):
+    df = pd.read_csv(path, sep=",")
+    img_paths = df['image_path'].tolist()
+    labels = {      
+        'vocal-throat': df['vocal-throat'].tolist(), # [0, 1, ..]
+        'nose': df['nose'].tolist(),
+        'ear': df['ear'].tolist(),
+        'throat': df['throat'].tolist(),
+    }
+    data = []
+    for i in range(len(img_paths)):
+        img_path = img_paths[i]
+        img = Image.open(img_path)
+        label_dict = {
+            'vocal-throat': labels['vocal-throat'][i],
+            'nose': labels['nose'][i],
+            'ear': labels['ear'][i],
+            'throat': labels['throat'][i],
+        }
+        data.append((img, label_dict))
+        
+    return data
 
 def main(args):
     
     # -------------- Take dataset --------------------
-    dataset = DatasetFactory.create_dataset(
-        dataset_name=args.dataset_name,
-        model_type=args.model_name,
-        data_root=DATA_ROOT,
-        transform=None
-    )
+    if args.dataset_name == "entrep":
+        dataset = get_entrep_data("local_data/entrep/entrep_data.csv")
+    else:
+        dataset = DatasetFactory.create_dataset(
+            dataset_name=args.dataset_name,
+            model_type=args.model_name,
+            data_root=DATA_ROOT,
+            transform=None
+        )
     
     # data[i]
     # img, label_dict = dataset[index]
@@ -69,12 +95,13 @@ def main(args):
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         model_config = config.get('model', {})
-            
+        
+        checkpoint_path = args.pretrained
         model = ModelFactory.create_model(
             model_type=args.model_name,
             variant='base',
-            # checkpoint="checkpoints/entrep_checkpoint.pt",
-            checkpoint=None,
+            checkpoint=checkpoint_path,
+            # checkpoint=None,
             pretrained=False,
             **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
             )
@@ -84,7 +111,11 @@ def main(args):
             model_type=args.model_name,
             variant='base',
             pretrained=False,
-            )       
+            )     
+        # checkpoint_path = "/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_model/biomedclip/ssl_finetune.pt"
+        checkpoint = torch.load(args.pretrained)['model_state_dict']
+        model.load_state_dict(checkpoint, strict=True)
+          
          
     model.eval()
     
@@ -107,7 +138,7 @@ def main(args):
     )
     
     # path dir save
-    save_dir = os.path.join(args.out_dir, args.model_name, args.dataset_name, f"dct_f={args.f_ratio}_attack_name{args.attacker_name}_epsilon={args.epsilon}_norm={args.norm}_mode={args.mode}_seed={args.seed}")
+    save_dir = os.path.join(args.out_dir, args.model_name, args.dataset_name, f"{args.visual_backbone_mode}_dct_f={args.f_ratio}_attack_name{args.attacker_name}_epsilon={args.epsilon}_norm={args.norm}_mode={args.mode}_seed={args.seed}")
     os.makedirs(save_dir, exist_ok=True)
     
     
@@ -132,7 +163,8 @@ def main(args):
             additional_eval=args.additional_eval
         )
 
-                
+    
+
     # --------------------------- Main LOOP ------------------ 
     for index in tqdm(indxs):
         img, label_dict = dataset[index]
@@ -250,6 +282,8 @@ def get_args():
 
     # using decoder
     parser.add_argument("--f_ratio", type=float, default=None)
+    parser.add_argument("--visual_backbone_mode", type=str, default='scratch', choices=['ssl', 'scratch'],)
+    parser.add_argument('--pretrained', type=str, default=None)
     args = parser.parse_args()
     return args
 
