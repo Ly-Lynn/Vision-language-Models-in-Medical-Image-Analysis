@@ -168,6 +168,7 @@ def main(args):
     # --------------------------- Main LOOP ------------------ 
     for index in tqdm(indxs):
         img, label_dict = dataset[index]
+        print(img)
         label_id = _extract_label(label_dict)
 
         if args.mode == "post_transform": # knowing transform
