@@ -83,56 +83,133 @@ COVID_CLASS_PROMPTS = {
     }
 }
 
+# RSNA_CLASS_PROMPTS = {
+#     'Pneumonia': {
+#         'adjective': ['round', 'early', 'focal', 'multifocal', 'small', ''],
+#         'subtype': ['bacterial', 'viral', 'mycoplasma', ''],
+#         "location": [
+#             "at the mid lung zone",
+#             "at the upper lung zone", 
+#             "at the right lung zone",
+#             "at the left lung zone",
+#             "at the lung bases",
+#             "at the right lung base",
+#             "at the left lung base",
+#             "at the bilateral lung bases",
+#             "at the left lower lobe",
+#             "at the right lower lobe",
+#             "at the left middle lobe",
+#             "at the right middle lobe",
+#             ""
+#         ]
+#     },
+#     'Normal': {
+#         'adjective': ['clear', 'normal', 'healthy'],
+#         'description': ['chest', 'lungs', 'findings'], 
+#         'subtype': ['x-ray', 'radiograph', 'image'],
+#         'location': ['', 'bilateral', 'throughout'],
+#     }
+# }
+
 RSNA_CLASS_PROMPTS = {
-    'Pneumonia': {
-        'adjective': ['round', 'early', 'focal', 'multifocal', 'small', ''],
-        'subtype': ['bacterial', 'viral', 'mycoplasma', ''],
-        "location": [
-            "at the mid lung zone",
-            "at the upper lung zone", 
-            "at the right lung zone",
-            "at the left lung zone",
-            "at the lung bases",
-            "at the right lung base",
-            "at the left lung base",
-            "at the bilateral lung bases",
-            "at the left lower lobe",
-            "at the right lower lobe",
-            "at the left middle lobe",
-            "at the right middle lobe",
-            ""
-        ]
-    },
-    'Normal': {
-        'adjective': ['clear', 'normal', 'healthy'],
-        'description': ['chest', 'lungs', 'findings'], 
-        'subtype': ['x-ray', 'radiograph', 'image'],
-        'location': ['', 'bilateral', 'throughout'],
-    }
+    'Pneumonia': [
+        "lung opacities",
+        "focal consolidation",
+        "patchy airspace opacity",
+        "increased lung density",
+        "pulmonary infiltrates",
+        "interstitial opacity",
+        "alveolar opacity",
+        "pleural effusion",
+        "parenchymal opacity"
+    ],
+    'Normal': [
+        "lungs clear",
+        "no focal consolidation",
+        "no pleural effusion",
+        "no pulmonary edema",
+        "no lung opacity",
+        "normal chest radiograph",
+        "no pulmonary"
+    ]
 }
+
+
+
+# ENTREP_CLASS_PROMPTS = {
+#     'vocal-throat': [
+#         'endoscopic image of vocal-throat',
+#         'medical image showing vocal-throat',
+#         'clinical image of vocal-throat'
+#     ],
+#     'nose': [
+#         'endoscopic image of nose',
+#         'medical image showing nose',
+#         'clinical image of nose'
+#     ],
+#     'ear': [
+#         'endoscopic image of nose',
+#         'medical image showing nose',
+#         'clinical image of nose'
+#     ],
+#     'throat': [
+#         'endoscopic image of throat',
+#         'medical image showing throat',
+#         'clinical image of throat'
+#     ],
+# }
 
 ENTREP_CLASS_PROMPTS = {
     'vocal-throat': [
-        'endoscopic image of vocal-throat',
-        'medical image showing vocal-throat',
-        'clinical image of vocal-throat'
+        "vocal cords visualized",
+        "vocal cord edema",
+        "vocal cord erythema",
+        "vocal cord thickening",
+        "glottic edema",
+        "supraglottic swelling",
+        "interarytenoid edema",
+        "tonsillar enlargement",
+        "oropharyngeal mucosa normal",
+        "no tonsillar exudate"
     ],
     'nose': [
-        'endoscopic image of nose',
-        'medical image showing nose',
-        'clinical image of nose'
+        "nasal mucosa erythema",
+        "nasal turbinate hypertrophy",
+        "nasal discharge",
+        "septal deviation",
+        "pale nasal mucosa",
+        "mucus in nasal cavity",
+        "inferior turbinate enlarged",
+        "nasal airway patent",
+        "visualized nasal cavity",
+        "no purulent discharge"
     ],
     'ear': [
-        'endoscopic image of nose',
-        'medical image showing nose',
-        'clinical image of nose'
+        "tympanic membrane intact",
+        "tympanic membrane erythema",
+        "tympanic membrane bulging",
+        "auditory canal edema",
+        "ear canal discharge",
+        "cerumen present",
+        "external auditory canal clear",
+        "tympanic membrane thickened",
+        "no middle ear effusion",
+        "auditory canal normal"
     ],
     'throat': [
-        'endoscopic image of throat',
-        'medical image showing throat',
-        'clinical image of throat'
+        "tonsillar edema",
+        "pharyngeal erythema",
+        "posterior oropharynx edema",
+        "mucus in oropharynx",
+        "oropharyngeal discharge",
+        "uvula midline",
+        "posterior pharyngeal wall erythema",
+        "oropharynx clear",
+        "no tonsillar hypertrophy",
+        "mucosa moist and pink"
     ],
 }
+
 
 # Model weights
 WEIGHTS_NAME = 'pytorch_model.bin'

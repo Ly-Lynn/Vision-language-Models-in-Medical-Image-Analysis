@@ -8,6 +8,57 @@ import numpy as np
 import torch
 import yaml 
 import json
+import pandas as pd
+from PIL import Image
+from collections import OrderedDict
+def _strip_prefix_from_state_dict(sd, prefixes=( 'module.', 'model.')):
+
+    if isinstance(sd, dict) and 'state_dict' in sd and isinstance(sd['state_dict'], dict):
+        sd = sd['state_dict']
+
+    new_sd = OrderedDict()
+    for k, v in sd.items():
+        nk = k
+        for p in prefixes:
+            if nk.startswith(p):
+                nk = nk[len(p):]
+        new_sd[nk] = v
+    return new_sd
+
+
+def get_entrep_data(path):
+    df = pd.read_csv(path, sep=",")
+    img_paths = df['image_path'].tolist()
+    labels = {      
+        'vocal-throat': df['vocal-throat'].tolist(), # [0, 1, ..]
+        'nose': df['nose'].tolist(),
+        'ear': df['ear'].tolist(),
+        'throat': df['throat'].tolist(),
+    }
+    data = []
+    for i in range(len(img_paths)):
+        img_path = img_paths[i]
+        img = Image.open(img_path)
+        label_dict = {
+            'vocal-throat': labels['vocal-throat'][i],
+            'nose': labels['nose'][i],
+            'ear': labels['ear'][i],
+            'throat': labels['throat'][i],
+        }
+        data.append((img, label_dict))
+        
+    return data
+
+
+# data = get_entrep_data("local_data/entrep/entrep_data.csv")
+# print(data[0])
+# raise
+    
+    
+    
+    
+    
+
 
 def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
@@ -16,17 +67,21 @@ def _extract_label(dict_label):
         
 n_prompt = 5
 dataset_name = "rsna"
-model_type = 'biomedclip'
+model_type = 'biomedclip'  # medclip, biomedclip, entrep
 transform = MODEL_TRANSFORMS[model_type]
-batch_size = 128
+batch_size = 4
 
 DATA_ROOT = 'local_data'
-dataset = DatasetFactory.create_dataset(
-    dataset_name=dataset_name,
-    model_type=model_type,
-    data_root=DATA_ROOT,
-    transform=None
-)
+if dataset_name == "entrep":
+    dataset = get_entrep_data("local_data/entrep/entrep_data.csv")
+    
+else:
+    dataset = DatasetFactory.create_dataset(
+        dataset_name=dataset_name,
+        model_type=model_type,
+        data_root=DATA_ROOT,
+        transform=None
+    )
 # print(dataset[0])k
 print(len(dataset))# raise
 
@@ -48,7 +103,7 @@ elif model_type == "entrep":
     model = ModelFactory.create_model(
         model_type=model_type,
         variant='base',
-        checkpoint="checkpoints/entrep_checkpoint.pt",
+        checkpoint="/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_model/entrep_acmm/final thesis/vit_b_scratch/vitb_scratch.pt",
         # checkpoint=None,
         pretrained=False,
         **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
@@ -61,12 +116,21 @@ elif model_type == "biomedclip":
         variant='base',
         pretrained=False,
         )
+    checkpoint_path = "/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_model/biomedclip/ssl_finetune.pt"
+    checkpoint = torch.load(checkpoint_path)['model_state_dict']
+    model.load_state_dict(checkpoint, strict=True)
+    # raise
+    
     
 model.eval()
+total_params = sum(p.numel() for p in model.parameters())
+print(f"Total parameters: {total_params:,}")
 
+# raise
 # --------------------- Load class prompts ---------------------
 if dataset_name == "rsna":
-    class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
+    # class_prompts = generate_rsna_class_prompts(RSNA_CLASS_PROMPTS, n_prompt)
+    class_prompts = RSNA_CLASS_PROMPTS
 elif dataset_name == "entrep":
     class_prompts = ENTREP_CLASS_PROMPTS
     
@@ -129,7 +193,7 @@ with open(fname_results, "w", encoding="utf-8") as f:
 print(f"Saved per-sample predictions to: {fname_results}")
 
 # 2) Ghi lại dict class_prompts
-fname_prompts = f"evaluate_result/model_name={model_type}_dataset={dataset_name}_prompt.json"
+fname_prompts = f"evaluate_result/ssl_model_name={model_type}_dataset={dataset_name}_prompt.json"
 with open(fname_prompts, "w", encoding="utf-8") as f:
     json.dump(class_prompts, f, ensure_ascii=False, indent=2)
 print(f"Saved class_prompts to: {fname_prompts}")
@@ -137,7 +201,17 @@ print(f"Saved class_prompts to: {fname_prompts}")
 
 print(f"Total samples evaluated: {len(all_labels)}")
 print(f"Accuracy: {acc:.4f}")
-        
+
+class_names = list(class_prompts.keys())
+print("Per-class accuracy:")
+for i, class_name in enumerate(class_names):
+    mask = (all_labels == i)
+    if mask.sum() == 0:
+        print(f"  {class_name:<25}: No samples")
+        continue
+    class_acc = (all_preds[mask] == all_labels[mask]).float().mean().item()
+    print(f"  {class_name:<25}: {class_acc:.4f} ({mask.sum().item()} samples)")
+    
 
 
 

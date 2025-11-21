@@ -13,3 +13,4 @@ attack_dir/
 attack_new/*
 local_model/*
 checkpoints/*
+attack_tanh_transform/*

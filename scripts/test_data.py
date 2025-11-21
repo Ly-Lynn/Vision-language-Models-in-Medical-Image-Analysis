@@ -1,7 +1,7 @@
 import json
 import random
 
-path = r"D:\thesis_result\Vision-language-Models-in-Medical-Image-Analysis\evaluate_result\model_name=biomedclip_dataset=rsna_n_prompt=5.json"
+path = r"/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/evaluate_result/ssl_model_name=biomedclip_dataset=rsna_n_prompt=5.json"
 # Đọc file JSON
 with open(path, "r") as f:
     data = json.load(f)
