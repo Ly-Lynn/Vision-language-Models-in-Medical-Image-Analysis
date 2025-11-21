@@ -113,8 +113,9 @@ def main(args):
             pretrained=False,
             )     
         # checkpoint_path = "/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/local_model/biomedclip/ssl_finetune.pt"
-        checkpoint = torch.load(args.pretrained)['model_state_dict']
-        model.load_state_dict(checkpoint, strict=True)
+        if args.pretrained:
+            checkpoint = torch.load(args.pretrained)['model_state_dict']
+            model.load_state_dict(checkpoint, strict=True)
           
          
     model.eval()
