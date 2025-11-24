@@ -19,7 +19,22 @@ def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
         if is_gt == 1:
             return i
-        
+
+def _strip_prefix_from_state_dict(sd, prefixes=('visual.')):
+
+    if isinstance(sd, dict) and 'state_dict' in sd and isinstance(sd['state_dict'], dict):
+        sd = sd['state_dict']
+
+    new_sd = OrderedDict()
+    for k, v in sd.items():
+        nk = k
+        # Bỏ lần lượt các prefix nếu có
+        for p in prefixes:
+            if nk.startswith(p):
+                nk = nk[len(p):]
+        new_sd[nk] = v
+    return new_sd
+
 def get_entrep_data(path):
     df = pd.read_csv(path, sep=",")
     img_paths = df['image_path'].tolist()
@@ -89,11 +104,11 @@ def main(args):
             variant='base',
             pretrained=True
         )
-        if args.pretrained:
-            checkpoint = torch.load(args.pretrained)['model_state_dict']
-            incapable_key = model.load_state_dict(checkpoint, strict=True)
-            print("Incapable key when load pretrained: ", incapable_key)
-            model = model.eval()
+        if args.visual_backbone_pretrained:
+            checkpoint = torch.load(args.visual_backbone_pretrained)['model_state_dict'] 
+            checkpoint = _strip_prefix_from_state_dict(checkpoint)
+            not_matching_key = model.vision_model.load_state_dict(checkpoint)
+            print("Incabable key: ", not_matching_key)
         
     elif args.model_name == "entrep":
         config_path = "configs/entrep_contrastive.yaml"
@@ -290,6 +305,7 @@ def get_args():
     parser.add_argument("--f_ratio", type=float, default=None)
     parser.add_argument("--visual_backbone_mode", type=str, default='scratch', choices=['ssl', 'scratch'],)
     parser.add_argument('--pretrained', type=str, default=None)
+    parser.add_argument('--visual_backbone_pretrained', type=str, default=None)
     args = parser.parse_args()
     return args
 
