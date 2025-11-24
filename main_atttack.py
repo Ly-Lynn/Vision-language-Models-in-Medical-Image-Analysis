@@ -208,8 +208,8 @@ def main(args):
         # re-evaluation
         sims = img_feats @ evaluator.class_text_feats.T                     # (B, NUM_CLASS)
         clean_preds = sims.argmax(dim=-1).item()                    # (B,)
-        print("Clean preds: ", clean_preds)
-        print("Label_id: ", label_id)
+        # print("Clean preds: ", clean_preds)
+        # print("Label_id: ", label_id)
         # raise
 
         # main attack
