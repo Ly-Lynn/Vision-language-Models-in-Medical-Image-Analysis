@@ -93,6 +93,7 @@ def main(args):
             checkpoint = torch.load(args.pretrained)['model_state_dict']
             incapable_key = model.load_state_dict(checkpoint, strict=True)
             print("Incapable key when load pretrained: ", incapable_key)
+            model = model.eval()
         
     elif args.model_name == "entrep":
         config_path = "configs/entrep_contrastive.yaml"
