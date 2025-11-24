@@ -13,7 +13,7 @@ from torchvision import transforms
 import yaml
 import pandas as pd
 from PIL import Image
-
+from collections import OrderedDict
 _toTensor = transforms.ToTensor()
 def _extract_label(dict_label):
     for i, (class_name, is_gt) in enumerate(dict_label.items()):
