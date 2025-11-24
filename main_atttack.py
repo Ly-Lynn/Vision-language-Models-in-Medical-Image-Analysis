@@ -104,8 +104,8 @@ def main(args):
             variant='base',
             pretrained=True
         )
-        print("args.visual_backbone_pretrained: ", args.visual_backbone_pretrained)
-        raise
+        # print("args.visual_backbone_pretrained: ", args.visual_backbone_pretrained)
+        # raise
         if args.visual_backbone_pretrained:
             checkpoint = torch.load(args.visual_backbone_pretrained)['model_state_dict'] 
             checkpoint = _strip_prefix_from_state_dict(checkpoint)
