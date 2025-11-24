@@ -109,6 +109,7 @@ def main(args):
             checkpoint = _strip_prefix_from_state_dict(checkpoint)
             not_matching_key = model.vision_model.load_state_dict(checkpoint)
             print("Incabable key: ", not_matching_key)
+            raise
         
     elif args.model_name == "entrep":
         config_path = "configs/entrep_contrastive.yaml"
