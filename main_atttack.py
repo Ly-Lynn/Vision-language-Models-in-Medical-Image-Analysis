@@ -187,7 +187,7 @@ def main(args):
             additional_eval=args.additional_eval
         )
 
-    elif args.attacker_name == "rs": #  random search
+    elif args.attacker_name == "RS": #  random search
         attacker = RandomSearch(
             evaluator=evaluator,
             eps=args.epsilon,
@@ -294,7 +294,7 @@ def get_args():
     
     # Attack configuration
     parser.add_argument("--attacker_name", type=str, required=True,
-                        choices=["random_search", "ES_1_1", "ES_1_Lambda", "ES_1_Lambda_visual", "ES_Mu_Lambda", "PGD"],
+                        choices=["random_search", "ES_1_1", "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES"],
                         help="Name of attacker algorithm")
     parser.add_argument("--epsilon", type=float, default=8/255,
                         help="Maximum perturbation magnitude (default: 8/255)")
