@@ -62,7 +62,13 @@ def main(args):
     
     # -------------- Take dataset --------------------
     if args.dataset_name == "entrep":
-        dataset = get_entrep_data("local_data/entrep/entrep_data.csv")
+        # dataset = get_entrep_data("local_data/entrep/entrep_data.csv")
+        dataset = DatasetFactory.create_dataset(
+            dataset_name=args.dataset_name,
+            model_type=args.model_name,
+            data_root=DATA_ROOT,
+            transform=None
+        )    
     else:
         dataset = DatasetFactory.create_dataset(
             dataset_name=args.dataset_name,
