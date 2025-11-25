@@ -118,7 +118,7 @@ class ENTREPDataset(BaseContrastiveDataset):
                 #     force_download=False,                    # không tải lại nếu đã có sẵn
                 # )
                 with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
-                    zip_ref.extractall(self.data_root)
+                    zip_ref.extractall(entrep_dir)
                 os.remove(entrep_output) 
                 self.create_csv()
                 return True
