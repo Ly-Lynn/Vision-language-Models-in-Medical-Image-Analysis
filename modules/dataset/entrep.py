@@ -24,6 +24,7 @@ from ..utils.constants import (
     ENTREP_TASKS, DEFAULT_TEMPLATES, RANDOM_STATE, TRAIN_RATIO, TEST_RATIO, VAL_RATIO
 )
 from ..utils.logging_config import get_logger
+from huggingface_hub import hf_hub_download
 
 logger = get_logger(__name__)
 
@@ -103,11 +104,17 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
                 
             url_id = "12jIUN2_CPD_gaIBpU45G5oHfjy0NGBkx"
-            entrep_output = os.path.join(self.data_root, "entrep_dataset.zip")
+            entrep_output = os.path.join(self.data_root, "entrep.zip")
             logger.info("Downloading ENTREP dataset from Google Drive...")
             
             try:
-                gdown.download(id=url_id, output=entrep_output, quiet=False)
+                # gdown.download(id=url_id, output=entrep_output, quiet=False)
+                hf_hub_download(
+                    repo_id="Woffy/ENTREP_CLIP",  # sửa repo của bạn
+                    filename="entrep.zip",
+                    local_dir="local_data",                 # tải đúng vào thư mục bạn muốn
+                    force_download=False,                    # không tải lại nếu đã có sẵn
+                )
                 with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
                     zip_ref.extractall(self.data_root)
                 os.remove(entrep_output) 
