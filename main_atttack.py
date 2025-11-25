@@ -123,8 +123,8 @@ def main(args):
         model = ModelFactory.create_model(
             model_type=args.model_name,
             variant='base',
-            checkpoint=checkpoint_path,
-            # checkpoint=None,
+            # checkpoint=checkpoint_path,
+            checkpoint=None,
             pretrained=False,
             **{k: v for k, v in model_config.items() if k != 'model_type' and k != "pretrained" and k != "checkpoint"}
             )
