@@ -104,7 +104,9 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
                 
             url_id = "1oJwG1T18ghT8xeHVIUOV3Ao5oDBHKYnR"
-            entrep_output = os.path.join(self.data_root, 'entrep', "entrep.zip")
+            entrep_dir= os.path.join(self.data_root, 'entrep')
+            os.makedirs(entrep_dir, exist_ok=True)
+            entrep_output= os.path.join(entrep_dir, "entrep.zip")
             logger.info("Downloading ENTREP dataset from Google Drive...")
             
             try:
