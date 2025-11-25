@@ -5,7 +5,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import json
-from modules.attack.attack import ES_1_Lambda, ES_1_Lambda_visual
+from modules.attack.attack import ES_1_Lambda, ES_1_Lambda_visual, RandomSearch, NESAttack
 from modules.attack.evaluator import EvaluatePerturbation, DCTDecoder
 from modules.attack.util import seed_everything 
 import os
@@ -294,7 +294,7 @@ def get_args():
     
     # Attack configuration
     parser.add_argument("--attacker_name", type=str, required=True,
-                        choices=["random_search", "ES_1_1", "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES"],
+                        choices=[ "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES"],
                         help="Name of attacker algorithm")
     parser.add_argument("--epsilon", type=float, default=8/255,
                         help="Maximum perturbation magnitude (default: 8/255)")

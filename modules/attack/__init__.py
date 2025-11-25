@@ -9,7 +9,9 @@ for medical image analysis, including MedCLIP and BioMedCLIP.
 from .attack import (
     BaseAttack,
     ES_1_Lambda,    # NESAttack,
-    ES_1_Lambda_visual
+    ES_1_Lambda_visual,
+    NESAttack,
+    RandomSearch
 )
 
 # MedCLIP models
