@@ -93,6 +93,211 @@ class ES_1_Lambda(BaseAttack):
             
         return {"best_delta": delta_m, "best_margin": f_m, "history": history, "num_evaluation": num_evaluation}
 
+
+class RandomSearch(BaseAttack):
+    def __init__(self,
+                 evaluator,
+                 eps=8/255,
+                 norm="linf",
+                 max_evaluation=10000,
+                 lam=64,
+                 device='cuda'):
+        """
+        Random Search thuần, nhưng dạng population-based cho giống ES_1_Lambda:
+
+        - lam: số lượng mẫu (population size) mỗi vòng lặp.
+        - max_evaluation: tổng số lần query tối đa (trên từng delta).
+        """
+        super().__init__(evaluator, eps, norm, device)
+        self.max_evaluation = int(max_evaluation)
+        self.lam = int(lam)
+
+    def run(self) -> Dict[str, Any]:
+        # Lấy shape ảnh
+        if self.evaluator.decoder:
+            _, C, H, W = self.evaluator.lq_shape
+        else:
+            _, C, H, W = self.evaluator.img_tensor.shape
+
+        best_margin = float("inf")
+        best_l2 = float("inf")
+        best_delta = None
+        history = []
+        num_evaluation = 0
+
+        while num_evaluation < self.max_evaluation:
+            remaining = self.max_evaluation - num_evaluation
+            batch_size = min(self.lam, remaining)
+
+            z = torch.randn((batch_size, C, H, W), device=self.device)
+            deltas = self.z_to_delta(z)
+            deltas = project_delta(deltas, self.eps, self.norm)
+
+            margins, l2s = self.evaluate_population(deltas)
+            num_evaluation += batch_size
+
+            idx_best = torch.argmin(margins).item()
+            margin_batch_best = float(margins[idx_best].item())
+            l2_batch_best = float(l2s[idx_best].item())
+            delta_batch_best = deltas[idx_best:idx_best+1].clone()
+
+            if margin_batch_best < best_margin:
+                best_margin = margin_batch_best
+                best_l2 = l2_batch_best
+                best_delta = delta_batch_best
+
+            history.append([best_margin, best_l2])
+
+            if self.is_success(margin_batch_best):
+                break
+
+        if best_delta is None:
+            best_delta = torch.zeros((1, C, H, W), device=self.device)
+
+        if self.evaluator.decoder:
+            best_delta = self.evaluator.decoder(
+                best_delta, self.evaluator.img_W, self.evaluator.img_H
+            )
+            best_delta = project_delta(best_delta, self.eps, self.norm)
+
+        return {
+            "best_delta": best_delta,
+            "best_margin": best_margin,
+            "history": history,
+            "num_evaluation": num_evaluation
+        }
+
+
+
+class NESAttack(BaseAttack):
+    def __init__(self,
+                 evaluator,
+                 eps=8/255,
+                 norm="linf",
+                 max_evaluation=10000,
+                 nes_samples=50,
+                 nes_batch=32,
+                 sigma=0.5/255,
+                 alpha=1/255,
+                 device='cuda'):
+        """
+        NES black-box attack trong không gian z (giống ES_1_Lambda):
+
+        - nes_samples: số hướng nhiễu (số cặp + / -) cho mỗi vòng lặp outer.
+        - nes_batch: batch size khi query (để không vỡ VRAM).
+        - sigma: std cho smoothing NES.
+        - alpha: step size cập nhật m.
+        """
+        super().__init__(evaluator, eps, norm, device)
+        self.max_evaluation = int(max_evaluation)
+        self.nes_samples = int(nes_samples)
+        self.nes_batch = int(nes_batch)
+        self.sigma = float(sigma)
+        self.alpha = float(alpha)
+
+    def run(self) -> Dict[str, Any]:
+        if self.evaluator.decoder:
+            _, C, H, W = self.evaluator.lq_shape
+        else:
+            _, C, H, W = self.evaluator.img_tensor.shape
+
+        device = self.device
+
+        # Khởi tạo m (latent) = 0 -> delta ~ 0 (giống PGD bắt đầu từ ảnh gốc)
+        m = torch.zeros((1, C, H, W), device=device)
+
+        # Delta hiện tại
+        delta_m = self.z_to_delta(m)
+        delta_m = project_delta(delta_m, self.eps, self.norm)
+
+        # Đánh giá ban đầu
+        margins, l2s = self.evaluate_population(delta_m)
+        f_m = float(margins[0].item())
+        l2_m = float(l2s[0].item())
+
+        best_margin = f_m
+        best_l2 = l2_m
+        best_delta = delta_m.clone()
+
+        history = [[f_m, l2_m]]
+        num_evaluation = 1  # đã query 1 lần
+
+        # ================ Vòng lặp NES ================
+        while num_evaluation < self.max_evaluation and not self.is_success(f_m):
+
+            remaining = self.max_evaluation - num_evaluation
+            max_samples_by_budget = max(1, remaining // 2)
+            total_samples = min(self.nes_samples, max_samples_by_budget)
+
+            grad_accum = torch.zeros_like(m, device=device)
+            used = 0
+            s = 0
+
+            while s < total_samples and num_evaluation < self.max_evaluation:
+                bsz = min(self.nes_batch, total_samples - s)
+
+                z = torch.randn((bsz, C, H, W), device=device)  # [B,C,H,W]
+
+                m_pos = m + self.sigma * z
+                m_neg = m - self.sigma * z
+
+                delta_pos = self.z_to_delta(m_pos)
+                delta_neg = self.z_to_delta(m_neg)
+                delta_pos = project_delta(delta_pos, self.eps, self.norm)
+                delta_neg = project_delta(delta_neg, self.eps, self.norm)
+
+                deltas = torch.cat([delta_pos, delta_neg], dim=0)  # [2B,C,H,W]
+
+                margins_batch, _ = self.evaluate_population(deltas)
+                num_evaluation += 2 * bsz
+
+                loss_all = margins_batch.view(-1)  # [2B]
+                loss_pos = loss_all[:bsz].view(bsz, 1, 1, 1)
+                loss_neg = loss_all[bsz:].view(bsz, 1, 1, 1)
+
+                # grad ≈ 1/(2σ) * Σ (f_pos - f_neg) * z
+                grad_chunk = ((loss_pos - loss_neg) * z).sum(dim=0, keepdim=True)  # [1,C,H,W]
+                grad_accum = grad_accum + grad_chunk
+
+                used += bsz
+                s += bsz
+
+            grad_est = grad_accum / (2.0 * self.sigma * max(1, used))
+
+            m = m - self.alpha * grad_est.sign()
+            delta_m = self.z_to_delta(m)
+            delta_m = project_delta(delta_m, self.eps, self.norm)
+
+            # Đánh giá current point
+            margins, l2s = self.evaluate_population(delta_m)
+            num_evaluation += 1
+
+            f_m = float(margins[0].item())
+            l2_m = float(l2s[0].item())
+            history.append([f_m, l2_m])
+
+            # Cập nhật best theo margin
+            if f_m < best_margin:
+                best_margin = f_m
+                best_l2 = l2_m
+                best_delta = delta_m.clone()
+
+        # Decode nếu dùng decoder (giống ES_1_Lambda)
+        if self.evaluator.decoder:
+            best_delta = self.evaluator.decoder(best_delta,
+                                                self.evaluator.img_W,
+                                                self.evaluator.img_H)
+            best_delta = project_delta(best_delta, self.eps, self.norm)
+
+        return {
+            "best_delta": best_delta,
+            "best_margin": best_margin,
+            "history": history,
+            "num_evaluation": num_evaluation,
+        }
+
+
+
 class ES_1_Lambda_visual(BaseAttack):
     def __init__(self, evaluator, eps=8/255, norm="linf", max_evaluation=10000, _bs_steps=20, additional_eval=200,
                  lam=64, c_inc=1.5, c_dec=0.9, device='cuda'):

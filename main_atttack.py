@@ -187,6 +187,23 @@ def main(args):
             additional_eval=args.additional_eval
         )
 
+    elif args.attacker_name == "rs": #  random search
+        attacker = RandomSearch(
+            evaluator=evaluator,
+            eps=args.epsilon,
+            norm=args.norm,
+            max_evaluation=args.max_evaluation,
+            lam=args.lamda,
+        )
+    elif args.attacker_name == "NES": # zo
+        attacker = NESAttack(
+            evaluator=evaluator,
+            eps=args.epsilon,
+            norm=args.norm,
+            max_evaluation=args.max_evaluation,
+            nes_samples=args.lamda,       
+         )
+
     
 
     # --------------------------- Main LOOP ------------------ 
