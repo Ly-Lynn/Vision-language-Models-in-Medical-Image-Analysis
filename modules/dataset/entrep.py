@@ -103,18 +103,18 @@ class ENTREPDataset(BaseContrastiveDataset):
                 logger.error("gdown not installed. Please install with: pip install gdown")
                 return False
                 
-            url_id = "12jIUN2_CPD_gaIBpU45G5oHfjy0NGBkx"
+            url_id = "1oJwG1T18ghT8xeHVIUOV3Ao5oDBHKYnR"
             entrep_output = os.path.join(self.data_root, "entrep.zip")
             logger.info("Downloading ENTREP dataset from Google Drive...")
             
             try:
-                # gdown.download(id=url_id, output=entrep_output, quiet=False)
-                hf_hub_download(
-                    repo_id="Woffy/ENTREP_CLIP",  # sửa repo của bạn
-                    filename="entrep.zip",
-                    local_dir="local_data",                 # tải đúng vào thư mục bạn muốn
-                    force_download=False,                    # không tải lại nếu đã có sẵn
-                )
+                gdown.download(id=url_id, output=entrep_output, quiet=False)
+                # hf_hub_download(
+                #     repo_id="Woffy/ENTREP_CLIP",  # sửa repo của bạn
+                #     filename="entrep.zip",
+                #     local_dir="local_data",                 # tải đúng vào thư mục bạn muốn
+                #     force_download=False,                    # không tải lại nếu đã có sẵn
+                # )
                 with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
                     zip_ref.extractall(self.data_root)
                 os.remove(entrep_output) 
