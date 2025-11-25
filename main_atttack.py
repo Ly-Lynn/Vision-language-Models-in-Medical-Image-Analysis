@@ -201,7 +201,8 @@ def main(args):
             eps=args.epsilon,
             norm=args.norm,
             max_evaluation=args.max_evaluation,
-            nes_samples=args.lamda,       
+            nes_samples=args.lamda,  
+            nes_batch=args.NES_batch   
          )
 
     
@@ -301,6 +302,7 @@ def get_args():
     parser.add_argument("--norm", type=str, default="linf",
                         choices=["linf", "l2"],
                         help="Norm constraint type")
+    parser.add_argument("--NES_batch", type=int, default=None)
     parser.add_argument("--max_evaluation", type=int, default=10000)
     parser.add_argument("--lamda", type=int, default=50)
     parser.add_argument("--bs_steps", type=int, default=20)
