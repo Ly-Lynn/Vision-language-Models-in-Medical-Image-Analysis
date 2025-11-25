@@ -130,7 +130,7 @@ class ENTREPDataset(BaseContrastiveDataset):
         # input()
         
         # Check if required files exist
-        data_csv_path = os.path.join(entrep_data_path, "entrep-data.csv")
+        data_csv_path = os.path.join(entrep_data_path, "entrep_data.csv")
         train_csv_path = os.path.join(entrep_data_path, "entrep-train-meta.csv")
         test_csv_path = os.path.join(entrep_data_path, "entrep-test-meta.csv")
         val_csv_path = os.path.join(entrep_data_path, "entrep-val-meta.csv")
