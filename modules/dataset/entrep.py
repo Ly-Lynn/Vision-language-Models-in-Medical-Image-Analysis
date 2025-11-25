@@ -24,14 +24,13 @@ from ..utils.constants import (
     ENTREP_TASKS, DEFAULT_TEMPLATES, RANDOM_STATE, TRAIN_RATIO, TEST_RATIO, VAL_RATIO
 )
 from ..utils.logging_config import get_logger
-from huggingface_hub import hf_hub_download
 
 logger = get_logger(__name__)
 
 class ENTREPDataset(BaseContrastiveDataset):
     def __init__(
         self,
-        data_root: str = 'local_data/entrep_old2',
+        data_root: str = 'local_data/entrep',
         split: str = 'train',
         model_type: str = 'entrep',
         transform: Optional[transforms.Compose] = None,
@@ -104,17 +103,11 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
                 
             url_id = "12jIUN2_CPD_gaIBpU45G5oHfjy0NGBkx"
-            entrep_output = os.path.join(self.data_root, "entrep.zip")
+            entrep_output = os.path.join(self.data_root, "entrep_dataset.zip")
             logger.info("Downloading ENTREP dataset from Google Drive...")
             
             try:
-                # gdown.download(id=url_id, output=entrep_output, quiet=False)
-                hf_hub_download(
-                    repo_id="Woffy/ENTREP_CLIP",  # sửa repo của bạn
-                    filename="entrep.zip",
-                    local_dir="local_data",                 # tải đúng vào thư mục bạn muốn
-                    force_download=False,                    # không tải lại nếu đã có sẵn
-                )
+                gdown.download(id=url_id, output=entrep_output, quiet=False)
                 with zipfile.ZipFile(entrep_output, 'r') as zip_ref:
                     zip_ref.extractall(self.data_root)
                 os.remove(entrep_output) 
@@ -125,9 +118,9 @@ class ENTREPDataset(BaseContrastiveDataset):
                 return False
         
         os.makedirs(self.data_root, exist_ok=True)
-        
-        # data_root is already 'local_data/entrep', no need to add 'entrep' again
-        entrep_data_path = self.data_root
+        entrep_data_path = os.path.join(self.data_root, 'entrep')
+        # print("Entrep data path: ", entrep_data_path)
+        # input()
         
         # Check if required files exist
         data_csv_path = os.path.join(entrep_data_path, "entrep-data.csv")
@@ -140,15 +133,15 @@ class ENTREPDataset(BaseContrastiveDataset):
                 logger.warning("Failed to download ENTREP data")
         
         # Load appropriate split
-        if self.split == 'train':
-            csv_path = train_csv_path
-        elif self.split == 'test':
-            csv_path = test_csv_path
-        elif self.split == 'val':
-            csv_path = val_csv_path
-        else:
-            raise ValueError(f"Invalid split: {self.split}")
-        # csv_path = data_csv_path    
+        # if self.split == 'train':
+        #     csv_path = train_csv_path
+        # elif self.split == 'test':
+        #     csv_path = test_csv_path
+        # elif self.split == 'val':
+        #     csv_path = val_csv_path
+        # else:
+        #     raise ValueError(f"Invalid split: {self.split}")
+        csv_path = data_csv_path    
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"Data file not found: {csv_path}")
             
@@ -182,24 +175,27 @@ class ENTREPDataset(BaseContrastiveDataset):
         
         # Load image
         img_path = row['image_path']
+
+        # img = self._load_image(img_path)
         img = Image.open(img_path)
+        labels = {
+            'vocal-throat': int(row['vocal-throat']),
+            'nose': int(row['nose']),
+            'ear': int(row['ear']),
+            'throat': int(row['throat']),
+        }
         
-        # Apply transforms - Transform PIL Image thành Tensor
-        if self.transform:
-            img_tensor = self.transform(img)
-        else:
-            # Default transform nếu không có transform được cung cấp
-            img_tensor = transforms.Compose([
-                transforms.Lambda(lambda x: x.convert("RGB")),
-                transforms.Resize((224, 224)),
-                transforms.ToTensor()
-            ])(img)
+        # Apply transforms
+        # if self.transform:
+        #     img_tensor = self.transform(img)
+        # else:
+        #     img_tensor = transforms.ToTensor()(img)
             
-        # Add channel dimension if needed
-        if img_tensor.dim() == 2:
-            img_tensor = img_tensor.unsqueeze(0)
+        # # Add channel dimension if needed
+        # if img_tensor.dim() == 2:
+        #     img_tensor = img_tensor.unsqueeze(0)
             
-        # Get text description for contrastive learning
+        # Get text description
         # Ưu tiên sử dụng description từ CSV nếu có
         if 'description' in row and pd.notna(row['description']):
             text = str(row['description'])
@@ -217,8 +213,8 @@ class ENTREPDataset(BaseContrastiveDataset):
             else:
                 text = "Endoscopic image"
             
-        # Return tensor và text cho contrastive learning
-        return img_tensor, text
+        # return img_tensor, text
+        return img, labels
     
     def get_class_prompts(self) -> Dict[str, List[str]]:
         """Return class prompts for zero-shot classification"""
