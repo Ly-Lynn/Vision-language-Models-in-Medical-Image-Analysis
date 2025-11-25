@@ -67,6 +67,7 @@ def main(args):
         data_root=DATA_ROOT,
         transform=None
     )
+    print(len(dataset))
     
     # data[i]
     # img, label_dict = dataset[index]
