@@ -149,7 +149,7 @@ def get_class_prompts(dataset_name):
         return {
             'Pneumonia': [
                 "Pneumonia Lung"
-            ]
+            ],
             'Normal': [
                 'Normal Lung'
             ]
