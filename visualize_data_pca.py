@@ -66,22 +66,23 @@ def get_class_prompts_rsna():
     Prompts cho pneumonia vs normal.
     Có thể thay bằng RSNA_CLASS_PROMPTS nếu bạn muốn dùng template phức tạp hơn.
     """
-    class_prompts = {
-        "Pneumonia": [
-            "Pneumonia lung X-ray",
-            "Chest X-ray showing pneumonia",
-            "Lung consolidation consistent with pneumonia",
-            "Chest radiograph with pneumonia findings",
-            "Abnormal lung X-ray with pneumonia"
-        ],
-        "Normal": [
-            "Normal lung X-ray",
-            "Clear chest X-ray with no abnormalities",
-            "Normal chest radiograph",
-            "Healthy lungs on X-ray",
-            "No signs of pneumonia on chest X-ray"
-        ],
-    }
+    # class_prompts = {
+    #     "Pneumonia": [
+    #         "Pneumonia lung X-ray",
+    #         "Chest X-ray showing pneumonia",
+    #         "Lung consolidation consistent with pneumonia",
+    #         "Chest radiograph with pneumonia findings",
+    #         "Abnormal lung X-ray with pneumonia"
+    #     ],
+    #     "Normal": [
+    #         "Normal lung X-ray",
+    #         "Clear chest X-ray with no abnormalities",
+    #         "Normal chest radiograph",
+    #         "Healthy lungs on X-ray",
+    #         "No signs of pneumonia on chest X-ray"
+    #     ],
+    # }
+    class_prompts = RSNA_CLASS_PROMPTS
     return class_prompts
 
 
