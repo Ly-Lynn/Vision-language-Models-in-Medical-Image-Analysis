@@ -148,10 +148,10 @@ def get_class_prompts(dataset_name):
         # return RSNA_CLASS_PROMPTS
         return {
             'Pneumonia': [
-                "Pneumonia lung-xray",
+                "A photo of Pneumonia xray",
             ],
             'Normal': [
-                'Normal lung-xray'
+                'A photo of Normal lung-xray'
             ]
         }
     elif dataset_name == "entrep":
