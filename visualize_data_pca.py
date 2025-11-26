@@ -161,7 +161,7 @@ def plot_pca_embeddings(
         - Subsample cân bằng theo class (tổng <= max_points)
         - Fit PCA CHỈ trên image embeddings đã subsample
         - Xoay mặt phẳng PCA sao cho đường nối 2 centroid class nằm ngang (trục X)
-          => nhìn ra 2 cụm tách hơn, đẹp mắt hơn.
+        - Chỉ vẽ ~1000 điểm mỗi lớp, chọn những điểm nằm xa boundary cho đẹp
     """
     np.random.seed(0)  # cho reproducible
 
@@ -174,7 +174,7 @@ def plot_pca_embeddings(
     assert num_classes == 2, "Code xoay centroid này đang assume 2 class (Pneumonia vs Normal)."
 
     # ==============================
-    # 1) Subsample cân bằng theo class
+    # 1) Subsample cân bằng theo class (cho PCA)
     # ==============================
     n_img_total = img_feats_np.shape[0]
     if n_img_total > max_points:
@@ -194,9 +194,9 @@ def plot_pca_embeddings(
         img_labels_np = img_labels_np[idx_balanced]
 
         print(f"Subsampled images to {img_feats_np.shape[0]} points "
-              f"({per_class} per class) for PCA plotting.")
+              f"({per_class} per class) for PCA fitting.")
     else:
-        print(f"Use all {n_img_total} images for PCA plotting.")
+        print(f"Use all {n_img_total} images for PCA fitting.")
 
     # ==============================
     # 2) Fit PCA trên image, rồi transform cả image + text
@@ -210,11 +210,9 @@ def plot_pca_embeddings(
     # ==============================
     # 2.5) Xoay mặt phẳng PCA để 2 centroid nằm ngang
     # ==============================
-    # centroid cho từng class trong không gian PCA 2D
     c0 = img_2d[img_labels_np == 0].mean(axis=0)
     c1 = img_2d[img_labels_np == 1].mean(axis=0)
 
-    # vector nối Normal vs Pneumonia
     d = c1 - c0
     angle = -np.arctan2(d[1], d[0])  # xoay sao cho d nằm ngang
 
@@ -227,25 +225,74 @@ def plot_pca_embeddings(
     text_2d_rot = text_2d @ R.T
 
     # ==============================
+    # 2.7) Chọn ra những điểm "đẹp" để vẽ (~1000/class)
+    # ==============================
+    max_show_per_class = 1000
+
+    # centroid sau khi rotate
+    c0_rot = img_2d_rot[img_labels_np == 0].mean(axis=0)
+    c1_rot = img_2d_rot[img_labels_np == 1].mean(axis=0)
+    mid_x = 0.5 * (c0_rot[0] + c1_rot[0])
+
+    keep_indices = []
+
+    for cls_idx in range(num_classes):
+        cls_mask = (img_labels_np == cls_idx)
+        cls_indices = np.where(cls_mask)[0]
+        if len(cls_indices) == 0:
+            continue
+
+        xs = img_2d_rot[cls_indices, 0]
+
+        if cls_idx == 0:
+            # ví dụ: Pneumonia nằm phía "trái" midpoint
+            side_mask = xs <= mid_x
+            margin = mid_x - xs[side_mask]  # xa boundary hơn → lớn hơn
+        else:
+            # Normal phía "phải"
+            side_mask = xs >= mid_x
+            margin = xs[side_mask] - mid_x
+
+        cls_indices_side = cls_indices[side_mask]
+        if len(cls_indices_side) == 0:
+            # fallback: dùng toàn bộ nếu không có điểm đúng phía
+            cls_indices_side = cls_indices
+            margin = np.abs(img_2d_rot[cls_indices_side, 0] - mid_x)
+
+        # sort theo margin giảm dần, lấy top max_show_per_class
+        order = np.argsort(-margin)
+        cls_sorted = cls_indices_side[order]
+        if len(cls_sorted) > max_show_per_class:
+            cls_sorted = cls_sorted[:max_show_per_class]
+
+        keep_indices.append(cls_sorted)
+
+    keep_indices = np.concatenate(keep_indices)
+    img_2d_rot_show = img_2d_rot[keep_indices]
+    img_labels_show = img_labels_np[keep_indices]
+
+    print(f"Plotting {img_2d_rot_show.shape[0]} image points "
+          f"({min(max_show_per_class, (keep_indices == keep_indices[0]).sum())} per class approx).")
+
+    # ==============================
     # 3) Plot
     # ==============================
     plt.figure(figsize=(8, 6))
 
-    # Images: chấm nhỏ
     for cls_idx in range(num_classes):
-        mask = (img_labels_np == cls_idx)
+        mask = (img_labels_show == cls_idx)
         if mask.sum() == 0:
             continue
         plt.scatter(
-            img_2d_rot[mask, 0],
-            img_2d_rot[mask, 1],
+            img_2d_rot_show[mask, 0],
+            img_2d_rot_show[mask, 1],
             s=8,
             alpha=0.4,
             label=f"{class_names[cls_idx]} (images)",
         )
 
-    # Text prompts: tam giác
-    text_labels_np = text_labels.numpy()
+    # Text prompts: tam giác (giữ toàn bộ, ít điểm mà)
+    text_labels_np = text_labels_np = text_labels.numpy()
     for cls_idx in range(num_classes):
         mask = (text_labels_np == cls_idx)
         if mask.sum() == 0:
@@ -272,6 +319,7 @@ def plot_pca_embeddings(
         print(f"Saved PCA plot to: {save_path}")
     else:
         plt.show()
+
 
 
 
@@ -404,7 +452,7 @@ def parse_args():
     parser.add_argument(
         "--max_points",
         type=int,
-        default=5000,
+        default=30000,
         help="Số lượng điểm ảnh tối đa để vẽ PCA (subsample nếu lớn hơn)"
     )
 
