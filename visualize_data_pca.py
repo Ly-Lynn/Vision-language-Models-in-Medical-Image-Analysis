@@ -339,10 +339,17 @@ def run(args):
 
     # 6) PCA + plot
     os.makedirs("visualizations", exist_ok=True)
-    pca_path = os.path.join(
-        "visualizations",
-        f"pca_rsna_model={args.model_name.replace('/', '_')}.png"
-    )
+    if args.pretrained:
+
+        pca_path = os.path.join(
+            "visualizations",
+            f"pca_rsna_model=finetuning_{args.model_name.replace('/', '_')}.png"
+        )
+    else:
+        pca_path = os.path.join(
+            "visualizations",
+            f"pca_rsna_model={args.model_name.replace('/', '_')}.png"
+        )
 
     plot_pca_embeddings(
         img_feats=all_img_feats.cpu(),
