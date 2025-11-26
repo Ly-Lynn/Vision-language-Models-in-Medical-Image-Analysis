@@ -148,7 +148,7 @@ def get_class_prompts(dataset_name):
         # return RSNA_CLASS_PROMPTS
         return {
             'Pneumonia': [
-                "Pneumonia lung-xray',
+                "Pneumonia lung-xray",
             ],
             'Normal': [
                 'Normal lung-xray'
