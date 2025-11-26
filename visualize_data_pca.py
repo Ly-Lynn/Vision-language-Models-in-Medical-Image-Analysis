@@ -157,10 +157,11 @@ def plot_pca_embeddings(
         - image embeddings (chấm tròn, màu theo class)
         - từng text prompt (tam giác, màu theo class)
 
-    Chi tiết:
+    Tricks:
         - Subsample cân bằng theo class (tổng <= max_points)
         - Fit PCA CHỈ trên image embeddings đã subsample
-        - Apply cùng PCA cho cả image + text
+        - Xoay mặt phẳng PCA sao cho đường nối 2 centroid class nằm ngang (trục X)
+          => nhìn ra 2 cụm tách hơn, đẹp mắt hơn.
     """
     np.random.seed(0)  # cho reproducible
 
@@ -170,6 +171,7 @@ def plot_pca_embeddings(
     text_labels_np = text_labels.numpy()
 
     num_classes = len(class_names)
+    assert num_classes == 2, "Code xoay centroid này đang assume 2 class (Pneumonia vs Normal)."
 
     # ==============================
     # 1) Subsample cân bằng theo class
@@ -202,8 +204,27 @@ def plot_pca_embeddings(
     pca = PCA(n_components=2)
     pca.fit(img_feats_np)
 
-    img_2d = pca.transform(img_feats_np)
-    text_2d = pca.transform(text_feats_np)
+    img_2d = pca.transform(img_feats_np)   # (N, 2)
+    text_2d = pca.transform(text_feats_np) # (T, 2)
+
+    # ==============================
+    # 2.5) Xoay mặt phẳng PCA để 2 centroid nằm ngang
+    # ==============================
+    # centroid cho từng class trong không gian PCA 2D
+    c0 = img_2d[img_labels_np == 0].mean(axis=0)
+    c1 = img_2d[img_labels_np == 1].mean(axis=0)
+
+    # vector nối Normal vs Pneumonia
+    d = c1 - c0
+    angle = -np.arctan2(d[1], d[0])  # xoay sao cho d nằm ngang
+
+    cos_a = np.cos(angle)
+    sin_a = np.sin(angle)
+    R = np.array([[cos_a, -sin_a],
+                  [sin_a,  cos_a]], dtype=np.float32)
+
+    img_2d_rot = img_2d @ R.T
+    text_2d_rot = text_2d @ R.T
 
     # ==============================
     # 3) Plot
@@ -216,21 +237,22 @@ def plot_pca_embeddings(
         if mask.sum() == 0:
             continue
         plt.scatter(
-            img_2d[mask, 0],
-            img_2d[mask, 1],
+            img_2d_rot[mask, 0],
+            img_2d_rot[mask, 1],
             s=8,
             alpha=0.4,
             label=f"{class_names[cls_idx]} (images)",
         )
 
     # Text prompts: tam giác
+    text_labels_np = text_labels.numpy()
     for cls_idx in range(num_classes):
-        mask = (text_labels.numpy() == cls_idx)
+        mask = (text_labels_np == cls_idx)
         if mask.sum() == 0:
             continue
         plt.scatter(
-            text_2d[mask, 0],
-            text_2d[mask, 1],
+            text_2d_rot[mask, 0],
+            text_2d_rot[mask, 1],
             s=40,
             marker="^",
             edgecolor="black",
@@ -239,9 +261,9 @@ def plot_pca_embeddings(
             label=f"{class_names[cls_idx]} (text prompts)",
         )
 
-    plt.xlabel("PCA dim 1")
-    plt.ylabel("PCA dim 2")
-    plt.title("PCA of image and text embeddings on RSNA (Pneumonia vs Normal)")
+    plt.xlabel("Rotated PCA dim 1")
+    plt.ylabel("Rotated PCA dim 2")
+    plt.title("PCA (rotated) of image and text embeddings on RSNA (Pneumonia vs Normal)")
     plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
 
