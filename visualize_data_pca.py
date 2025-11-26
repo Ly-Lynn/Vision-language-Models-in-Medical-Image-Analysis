@@ -87,16 +87,14 @@ def get_class_prompts_rsna():
 
 def encode_class_prompts(model, tokenizer, class_prompts, device):
     """
-    Encode toàn bộ text prompts cho từng class.
+    Encode toàn bộ text prompts cho từng class (không lấy centroid nữa).
 
     class_prompts: dict[class_name] = list[text_prompt]
 
     Trả về:
-        class_features: (C, D)  - mean feature per class (prototype)
-        all_text_feats: (T, D)  - feature của từng prompt
-        all_text_labels: (T,)   - class id cho từng prompt
+        all_text_feats:  (T, D)  - feature của từng prompt
+        all_text_labels: (T,)    - class id cho từng prompt
     """
-    class_features = []
     all_text_feats = []
     all_text_labels = []
 
@@ -109,17 +107,13 @@ def encode_class_prompts(model, tokenizer, class_prompts, device):
         with torch.no_grad():
             text_feats = model.encode_text(text_tokens)  # (n_prompt, D)
 
-        mean_feats = text_feats.mean(dim=0)             # (D,)
-        class_features.append(mean_feats)
-
         all_text_feats.append(text_feats.cpu())
         all_text_labels.extend([cls_idx] * text_feats.shape[0])
 
-    class_features = torch.stack(class_features, dim=0)                # (C, D)
     all_text_feats = torch.cat(all_text_feats, dim=0)                  # (T, D)
     all_text_labels = torch.tensor(all_text_labels, dtype=torch.long)  # (T,)
 
-    return class_features, all_text_feats, all_text_labels
+    return all_text_feats, all_text_labels
 
 
 def load_open_clip_model(args, device):
@@ -152,10 +146,9 @@ def load_open_clip_model(args, device):
 def plot_pca_embeddings(
     img_feats,
     img_labels,
-    class_features,
-    class_names,
     text_feats,
     text_labels,
+    class_names,
     save_path=None,
     max_points=5000,
 ):
@@ -163,49 +156,61 @@ def plot_pca_embeddings(
     Vẽ PCA 2D cho:
         - image embeddings (chấm tròn, màu theo class)
         - từng text prompt (tam giác, màu theo class)
-        - class prototype (X đen, có nhãn)
 
-    img_feats:      (N, D) tensor (CPU)
-    img_labels:     (N,)   tensor (CPU, long)
-    class_features: (C, D) tensor (CPU)
-    class_names:    list[str], len = C
-    text_feats:     (T, D) tensor (CPU)
-    text_labels:    (T,)   tensor (CPU, long)
+    Chi tiết:
+        - Subsample cân bằng theo class (tổng <= max_points)
+        - Fit PCA CHỈ trên image embeddings đã subsample
+        - Apply cùng PCA cho cả image + text
     """
+    np.random.seed(0)  # cho reproducible
+
     img_feats_np = img_feats.numpy()
     img_labels_np = img_labels.numpy()
-    class_feats_np = class_features.numpy()
     text_feats_np = text_feats.numpy()
     text_labels_np = text_labels.numpy()
 
-    # Optional: sample bớt ảnh cho plot đỡ dày
-    n_img = img_feats_np.shape[0]
-    if n_img > max_points:
-        idx = np.random.choice(n_img, size=max_points, replace=False)
-        img_feats_np = img_feats_np[idx]
-        img_labels_np = img_labels_np[idx]
-        n_img = img_feats_np.shape[0]
-        print(f"Subsampled images to {n_img} points for PCA plotting.")
+    num_classes = len(class_names)
 
-    n_class = class_feats_np.shape[0]
-    n_text = text_feats_np.shape[0]
+    # ==============================
+    # 1) Subsample cân bằng theo class
+    # ==============================
+    n_img_total = img_feats_np.shape[0]
+    if n_img_total > max_points:
+        per_class = max_points // num_classes
+        idx_list = []
 
-    combined = np.concatenate(
-        [img_feats_np, class_feats_np, text_feats_np],
-        axis=0,
-    )
+        for cls_idx in range(num_classes):
+            cls_indices = np.where(img_labels_np == cls_idx)[0]
+            if len(cls_indices) == 0:
+                continue
+            if len(cls_indices) > per_class:
+                cls_indices = np.random.choice(cls_indices, size=per_class, replace=False)
+            idx_list.append(cls_indices)
 
+        idx_balanced = np.concatenate(idx_list)
+        img_feats_np = img_feats_np[idx_balanced]
+        img_labels_np = img_labels_np[idx_balanced]
+
+        print(f"Subsampled images to {img_feats_np.shape[0]} points "
+              f"({per_class} per class) for PCA plotting.")
+    else:
+        print(f"Use all {n_img_total} images for PCA plotting.")
+
+    # ==============================
+    # 2) Fit PCA trên image, rồi transform cả image + text
+    # ==============================
     pca = PCA(n_components=2)
-    combined_2d = pca.fit_transform(combined)
+    pca.fit(img_feats_np)
 
-    img_2d = combined_2d[:n_img]
-    class_2d = combined_2d[n_img:n_img + n_class]
-    text_2d = combined_2d[n_img + n_class:]
+    img_2d = pca.transform(img_feats_np)
+    text_2d = pca.transform(text_feats_np)
 
+    # ==============================
+    # 3) Plot
+    # ==============================
     plt.figure(figsize=(8, 6))
 
-    # ===== Images: chấm nhỏ, màu theo class =====
-    num_classes = len(class_names)
+    # Images: chấm nhỏ
     for cls_idx in range(num_classes):
         mask = (img_labels_np == cls_idx)
         if mask.sum() == 0:
@@ -218,9 +223,9 @@ def plot_pca_embeddings(
             label=f"{class_names[cls_idx]} (images)",
         )
 
-    # ===== Text prompts: tam giác, màu theo class =====
+    # Text prompts: tam giác
     for cls_idx in range(num_classes):
-        mask = (text_labels_np == cls_idx)
+        mask = (text_labels.numpy() == cls_idx)
         if mask.sum() == 0:
             continue
         plt.scatter(
@@ -234,27 +239,6 @@ def plot_pca_embeddings(
             label=f"{class_names[cls_idx]} (text prompts)",
         )
 
-    # ===== Class prototypes: X đen, có nhãn =====
-    plt.scatter(
-        class_2d[:, 0],
-        class_2d[:, 1],
-        s=120,
-        marker="X",
-        edgecolor="black",
-        linewidth=1.5,
-        c="black",
-        label="Class prototypes (mean text)",
-    )
-
-    for i, name in enumerate(class_names):
-        plt.text(
-            class_2d[i, 0],
-            class_2d[i, 1],
-            f" {name}",
-            fontsize=10,
-            weight="bold",
-        )
-
     plt.xlabel("PCA dim 1")
     plt.ylabel("PCA dim 2")
     plt.title("PCA of image and text embeddings on RSNA (Pneumonia vs Normal)")
@@ -266,6 +250,7 @@ def plot_pca_embeddings(
         print(f"Saved PCA plot to: {save_path}")
     else:
         plt.show()
+
 
 
 # =========================================================
@@ -287,8 +272,8 @@ def run(args):
     class_prompts = get_class_prompts_rsna()
     class_names = list(class_prompts.keys())
 
-    # 4) Encode text
-    class_features, all_text_feats, all_text_labels = encode_class_prompts(
+    # 4) Encode text (không centroid)
+    all_text_feats, all_text_labels = encode_class_prompts(
         model, tokenizer, class_prompts, device
     )
 
@@ -307,8 +292,7 @@ def run(args):
             for idx in range(start, end):
                 img, label_dict = dataset[idx]      # giả định dataset trả (PIL, dict_label)
                 if isinstance(img, Image.Image) is False:
-                    # đề phòng dataset trả tensor, thì convert sang PIL nếu cần
-                    # nhưng nếu preprocess của open_clip ăn luôn tensor thì bỏ phần này
+                    # nếu dataset trả tensor và preprocess ăn tensor thì có thể bỏ phần này
                     pass
 
                 img_tensor = preprocess(img)        # (C, H, W)
@@ -341,10 +325,9 @@ def run(args):
     plot_pca_embeddings(
         img_feats=all_img_feats.cpu(),
         img_labels=all_labels.cpu(),
-        class_features=class_features.cpu(),
-        class_names=class_names,
         text_feats=all_text_feats,
         text_labels=all_text_labels,
+        class_names=class_names,
         save_path=pca_path,
         max_points=args.max_points,
     )
