@@ -351,12 +351,12 @@ def run(args):
 
         pca_path = os.path.join(
             "visualizations",
-            f"pca_rsna_model=finetuning_{args.model_name.replace('/', '_')}.png"
+            f"pca_rsna_model=finetuning_{args.model_name.replace('/', '_')}.pdf"
         )
     else:
         pca_path = os.path.join(
             "visualizations",
-            f"pca_rsna_model={args.model_name.replace('/', '_')}.png"
+            f"pca_rsna_model={args.model_name.replace('/', '_')}.pdf"
         )
 
     plot_pca_embeddings(
