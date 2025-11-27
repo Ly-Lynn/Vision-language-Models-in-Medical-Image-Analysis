@@ -226,12 +226,20 @@ def plot_pca_embeddings(
     img_2d_rot = img_2d @ R.T
     text_2d_rot = text_2d @ R.T
 
-    # ==============================
+     # ==============================
     # 3) Plot
     # ==============================
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(12, 10))
 
-    # Images: chấm nhỏ
+    # Increase global font size
+    plt.rcParams.update({
+        "font.size": 16,
+        "axes.titlesize": 20,
+        "axes.labelsize": 18,
+        "legend.fontsize": 16,
+    })
+
+    # Images: larger points
     for cls_idx in range(num_classes):
         mask = (img_labels_np == cls_idx)
         if mask.sum() == 0:
@@ -239,13 +247,12 @@ def plot_pca_embeddings(
         plt.scatter(
             img_2d_rot[mask, 0],
             img_2d_rot[mask, 1],
-            s=8,
-            alpha=0.4,
+            s=20,            # bigger dots (was 8)
+            alpha=0.35,
             label=f"{class_names[cls_idx]} (images)",
         )
 
-    # Text prompts: tam giác
-    text_labels_np = text_labels.numpy()
+    # Text prompts: larger triangles
     for cls_idx in range(num_classes):
         mask = (text_labels_np == cls_idx)
         if mask.sum() == 0:
@@ -253,18 +260,19 @@ def plot_pca_embeddings(
         plt.scatter(
             text_2d_rot[mask, 0],
             text_2d_rot[mask, 1],
-            s=40,
+            s=180,            # bigger triangles (was 40)
             marker="^",
             edgecolor="black",
-            linewidth=0.5,
-            alpha=0.9,
+            linewidth=1.2,    # clearer boundary
+            alpha=0.95,
             label=f"{class_names[cls_idx]} (text prompts)",
         )
 
     plt.xlabel("Rotated PCA dim 1")
     plt.ylabel("Rotated PCA dim 2")
-    plt.title("PCA (rotated) of image and text embeddings on RSNA (Pneumonia vs Normal)")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.title("PCA (rotated) of image and text embeddings on RSNA (Pneumonia vs Normal)", pad=20)
+
+    plt.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderpad=1.2)
     plt.tight_layout()
 
     if save_path is not None:
