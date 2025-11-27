@@ -260,14 +260,13 @@ def plot_pca_embeddings(
         plt.scatter(
             text_2d_rot[mask, 0],
             text_2d_rot[mask, 1],
-            s=180,            # bigger triangles (was 40)
+            s=420,    # to hơn nữa
             marker="^",
             edgecolor="black",
-            linewidth=1.2,    # clearer boundary
-            alpha=0.95,
+            linewidth=1.4,   # viền dày hơn chút cho đẹp
+            alpha=0.98,
             label=f"{class_names[cls_idx]} (text prompts)",
         )
-
     plt.xlabel("Rotated PCA dim 1")
     plt.ylabel("Rotated PCA dim 2")
     plt.title("PCA (rotated) of image and text embeddings on RSNA (Pneumonia vs Normal)", pad=20)
