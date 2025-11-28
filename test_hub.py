@@ -1,1 +1,0 @@
-from open_clip import create_model_and_transforms

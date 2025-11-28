@@ -41,6 +41,7 @@ class EvaluatePerturbation:
         self.mode = mode
         self.eps = eps
         self.norm = norm
+        
     def set_data(self, image, clean_pred_id):
         self.img = image
         self.img_tensor = pil_to_tensor([image]).cuda()
@@ -70,6 +71,36 @@ class EvaluatePerturbation:
     
     @torch.no_grad()
     def evaluate_blackbox(self, perturbations: torch.Tensor):
+        perturbations_ = perturbations.clone()
+        if self.decoder:
+            perturbations_ = self.decoder(perturbations, self.img_W, self.img_W)
+            perturbations_ = project_delta(perturbations_, self.eps, self.norm)        
+        adv_imgs = self.img_tensor + perturbations_
+        adv_imgs = torch.clamp(adv_imgs, 0, 1)
+                
+        if self.mode == "post_transform":
+            adv_feats = self.model.encode_posttransform_image(adv_imgs)  # (B, D)
+        
+        elif self.mode == "pre_transform":
+            adv_feats = self.model.encode_pretransform_image(adv_imgs)  # (B, D)
+        
+        sims = adv_feats @ self.class_text_feats.T     # (B, NUM_CLASSES)
+        # Correct class similarity
+        correct_sim = sims[:, self.clean_pred_id].unsqueeze(-1)
+
+        # Max of other classes
+        mask = torch.ones_like(sims, dtype=bool)
+        mask[:, self.clean_pred_id] = False
+        other_max_sim = sims[mask].view(sims.size(0), -1).max(dim=1, keepdim=True).values  # (B, 1)
+        margin = correct_sim - other_max_sim
+        # margin = correct_sim - other_max_sim + 0.05
+
+        
+        # l2
+        l2 = self.cal_l2(perturbations_)
+        return margin, l2
+
+    def evaluate_whitebox(self, perturbations: torch.Tensor):
         perturbations_ = perturbations.clone()
         if self.decoder:
             perturbations_ = self.decoder(perturbations, self.img_W, self.img_W)

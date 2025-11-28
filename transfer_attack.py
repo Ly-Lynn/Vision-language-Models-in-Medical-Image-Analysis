@@ -5,7 +5,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import json
-from modules.attack.attack import ES_1_Lambda, ES_1_Lambda_visual, RandomSearch, NESAttack, PGDAttack
+from modules.attack.attack import ES_1_Lambda, ES_1_Lambda_visual, RandomSearch, NESAttack
 from modules.attack.evaluator import EvaluatePerturbation, DCTDecoder
 from modules.attack.util import seed_everything 
 import os
@@ -72,6 +72,7 @@ def main(args):
     size_transform = SIZE_TRANSFORM[args.model_name]
 
     
+    # ================================ Load selected indices ================================
     with open(args.index_path, "r") as f:
         indxs = [int(line.strip()) for line in f.readlines()]
 
@@ -81,6 +82,8 @@ def main(args):
         indxs = indxs[args.start_idx:args.end_idx]
 
     print("Len attack: ", len(indxs))
+
+    
     
     # =========================================== Text prompt feature =========================================
     with open(args.prompt_path, "r") as f:
@@ -94,11 +97,6 @@ def main(args):
             variant='base',
             pretrained=True
         )
-        if args.visual_backbone_pretrained:
-            checkpoint = torch.load(args.visual_backbone_pretrained)['model_state_dict'] 
-            checkpoint = _strip_prefix_from_state_dict(checkpoint)
-            not_matching_key = model.vision_model.load_state_dict(checkpoint)
-            print("Incabable key: ", not_matching_key)
         
     elif args.model_name == "entrep": # ENTREP CLIP
         config_path = "configs/entrep_contrastive.yaml"
@@ -132,138 +130,33 @@ def main(args):
         print("Incabable key: ", not_matching_key)
     model.eval()
     
-    # -------------- Decoder ------------
-    decoder = None
-    if args.f_ratio:
-        decoder = DCTDecoder(
-            f_ratio=args.f_ratio
-        )
     
-    
-    # ========================== Evaluator ==========================
-    evaluator = EvaluatePerturbation(
-        model=model,
-        class_prompts=class_prompts,
-        mode=args.mode,
-        decoder=decoder,
-        eps=args.epsilon,
-        norm=args.norm
-    )
-    
-    # path dir save
-    save_dir = os.path.join(args.out_dir, args.model_name, args.dataset_name, f"{args.visual_backbone_mode}_dct_f={args.f_ratio}_attack_name{args.attacker_name}_epsilon={args.epsilon}_norm={args.norm}_mode={args.mode}_seed={args.seed}")
-    os.makedirs(save_dir, exist_ok=True)
-    
-    
-    # ========================== Attacker ==========================
-    if args.attacker_name == "ES_1_Lambda": # number of evalation = ierations * lambda
-        attacker = ES_1_Lambda(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            max_evaluation=args.max_evaluation,
-            lam=args.lamda
-        )
-        
-    elif args.attacker_name == "ES_1_Lambda_visual": # number of evalation = ierations * lambda
-        attacker = ES_1_Lambda_visual(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            max_evaluation=args.max_evaluation,
-            lam=args.lamda,
-            _bs_steps=args.bs_steps, 
-            additional_eval=args.additional_eval
-        )
-
-    elif args.attacker_name == "RS": #  random search
-        attacker = RandomSearch(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            max_evaluation=args.max_evaluation,
-            lam=args.lamda,
-        )
-    elif args.attacker_name == "NES": # zo
-        attacker = NESAttack(
-            evaluator=evaluator,
-            eps=args.epsilon,
-            norm=args.norm,
-            max_evaluation=args.max_evaluation,
-            nes_samples=args.lamda,  
-            nes_batch=args.NES_batch   
-         )
-
-    elif args.attacker_name == "PGD":
-        attacker = PGDAttack(
-            eps=args.epsilon,
-            alpha=args.epsilon / args.PGD_steps,
-            norm=args.norm,
-            steps=args.PGD_steps,
-            evaluator=evaluator
-        )
+ 
 
     
-
+    asr = 0
+    l2 = 0
     # --------------------------- Main LOOP ------------------ 
     for index in tqdm(indxs):
-        img, label_dict = dataset[index]
+        img_transfer_path = os.path.join(args.transfer_dir, str(index), "adv_img.png")
+        adv_img = Image.open(img_transfer_patth).convert("RGB")
+        _, label_dict = dataset[index]
         label_id = _extract_label(label_dict)
 
         if args.mode == "post_transform": # knowing transform
-            img_attack = size_transform(img).convert("RGB")
             img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
             img_feats = model.encode_posttransform_image(img_attack_tensor)
         
         elif args.mode == "pre_transform": # w/o knoiwng transform
-            img_attack = img.convert("RGB")
             img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
             img_feats = model.encode_pretransform_image(img_attack_tensor)
       
       
         # re-evaluation
         sims = img_feats @ evaluator.class_text_feats.T                     # (B, NUM_CLASS)
-        clean_preds = sims.argmax(dim=-1).item()                    # (B,)
-        # print("Clean preds: ", clean_preds)
-        # print("Label_id: ", label_id)
-        # raise
-
-        # main attack
-        attacker.evaluator.set_data(
-            image=img_attack,
-            clean_pred_id=clean_preds
-        )
-        
-        result = attacker.run()
-        delta = result['best_delta']
-        adv_imgs, pil_adv_imgs = evaluator.take_adv_img(delta)
-        
-        # recheck
-        if args.mode == "post_transform": # knowing transform
-            img_feats = model.encode_posttransform_image(adv_imgs) # (B, NUM_CLASS)
-            
-        elif args.mode == "pre_transform":
-            img_feats = model.encode_pretransform_image(adv_imgs)  # (B, D)
-        
-        sims = img_feats @ evaluator.class_text_feats.T                     # (B, NUM_CLASS)
         adv_preds = sims.argmax(dim=-1).item()                    # (B,)
-        # print("Adv preds: ", preds)
-        
-        # save_dir
-        index_dir = os.path.join(save_dir, str(index))
-        os.makedirs(index_dir, exist_ok=True)
-        pil_adv_imgs[0].save(os.path.join(index_dir, f'adv_img.png'))
-        img_attack.save(os.path.join(index_dir, "clean_img.png"))
-        
-        info = {
-            'clean_pred': clean_preds,
-            'adv_pred': adv_preds,
-            'gt': label_id,
-            'success_iterations': result['num_evaluation']
-        }
-        with open(os.path.join(index_dir, "info.json"), "w") as f:
-            json.dump(info, f, indent=4)
-            
+        if adv_preds != label_id:
+            asr += 1
             
         
         
@@ -284,6 +177,10 @@ def get_args():
     parser.add_argument("--model_name", type=str, required=True,
                         help="Model architecture (e.g., clip, biomedclip, etc.)")
     
+
+    # transfer_path
+    parser.add_argument("--transfer_dir", type=str)
+
     # Files
     parser.add_argument("--index_path", type=str, required=True,
                         help="Path to txt file containing selected indices (one per line)")
@@ -292,7 +189,7 @@ def get_args():
     
     # Attack configuration
     parser.add_argument("--attacker_name", type=str, required=True,
-                        choices=[ "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES", 'PGD'],
+                        choices=[ "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES"],
                         help="Name of attacker algorithm")
     parser.add_argument("--epsilon", type=float, default=8/255,
                         help="Maximum perturbation magnitude (default: 8/255)")
@@ -301,7 +198,6 @@ def get_args():
                         help="Norm constraint type")
     parser.add_argument("--NES_batch", type=int, default=None)
     parser.add_argument("--max_evaluation", type=int, default=10000)
-    parser.add_argument("--PGD_steps", type=int, default=100)
     parser.add_argument("--lamda", type=int, default=50)
     parser.add_argument("--bs_steps", type=int, default=20)
     parser.add_argument("--additional_eval", type=int, default=200)

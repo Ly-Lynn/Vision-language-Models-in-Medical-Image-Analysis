@@ -404,3 +404,42 @@ class ES_1_Lambda_visual(BaseAttack):
 
             
         return {"best_delta": delta_m, "best_margin": f_m, "history": history, "num_evaluation": num_evaluation}
+
+
+class PGDAttack(BaseAttack):
+    def __init__(self, eps, alpha, norm, steps, evaluator):
+        self.eps = eps
+        self.alpha = alpha
+        self.norm = norm
+        self.steps = steps
+        self.evaluator = evaluator
+    
+    def run(self):
+        delta = torch.zeros_like(self.evaluator.img_tensor).to(self.evaluator.img_tensor.device)
+        delta.requires_grad = True
+
+        for step in range(self.steps):
+            margin, _ = self.evaluator.evaluate_whitebox(delta)
+            loss = margin.mean()
+            print("Loss: ", loss)
+            loss.backward()
+            if loss < 0:
+                break
+            with torch.no_grad():
+                if self.norm == "linf":
+                    delta.data = delta - self.alpha * delta.grad.sign()
+                    delta.data = clamp_eps(delta.data, self.eps, norm="linf")
+                elif self.norm == "l2":
+                    grad_norm = torch.norm(delta.grad.view(delta.size(0), -1), dim=1).view(-1, 1, 1, 1)
+                    scaled_grad = delta.grad / (grad_norm + 1e-10)
+                    delta.data = delta - self.alpha * scaled_grad
+                    delta.data = clamp_eps(delta.data, self.eps, norm="l2")
+                delta.grad.zero_()
+
+        final_margin, _ = self.evaluator.evaluate_whitebox(delta)
+        return {
+            "best_delta": delta.detach(),
+            "best_margin": float(final_margin.item()),
+            "history": None,
+            "num_evaluation": step
+        }
