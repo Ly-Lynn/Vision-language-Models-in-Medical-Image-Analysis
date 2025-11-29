@@ -76,7 +76,8 @@ def main(args):
 
     # ================================ Load selected indices ================================
     with open(args.index_path, "r") as f:
-        indxs = [int(line.strip()) for line in f.readlines()]
+        # indxs = [int(line.strip()) for line in f.readlines()]
+        indxs = [int(sample_id) for sample_id in os.listdir(args.transfer_dir)]
 
     if not args.end_idx:
         indxs = indxs[args.start_idx:]
