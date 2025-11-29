@@ -71,7 +71,9 @@ def main(args):
     
     size_transform = SIZE_TRANSFORM[args.model_name]
 
-    
+
+
+
     # ================================ Load selected indices ================================
     with open(args.index_path, "r") as f:
         indxs = [int(line.strip()) for line in f.readlines()]
@@ -97,6 +99,11 @@ def main(args):
             variant='base',
             pretrained=True
         )
+        if args.visual_backbone_pretrained:
+            checkpoint = torch.load(args.visual_backbone_pretrained)['model_state_dict'] 
+            checkpoint = _strip_prefix_from_state_dict(checkpoint)
+            not_matching_key = model.vision_model.load_state_dict(checkpoint)
+            print("Incabable key: ", not_matching_key)
         
     elif args.model_name == "entrep": # ENTREP CLIP
         config_path = "configs/entrep_contrastive.yaml"
@@ -125,13 +132,23 @@ def main(args):
           
     if args.pretrained:
         checkpoint = torch.load(args.pretrained)['model_state_dict']
-        checkpoint = _strip_prefix_from_state_dict(checkpoint)
+        # checkpoint = _strip_prefix_from_state_dict(checkpoint)
         not_matching_key = model.load_state_dict(checkpoint, strict=False)
         print("Incabable key: ", not_matching_key)
     model.eval()
     
     
- 
+    if args.dataset_name == "rsna":
+        class_prompts = RSNA_CLASS_PROMPTS
+    elif args.dataset_name == "entrep":
+        class_prompts = ENTREP_CLASS_PROMPTS
+        
+    class_features = []
+    for class_name, item in class_prompts.items():
+        text_feats = model.encode_text(item)
+        mean_feats = text_feats.mean(dim=0)
+        class_features.append(mean_feats) 
+    class_features = torch.stack(class_features) #  NUM_ClASS x D
 
     
     asr = 0
@@ -139,27 +156,27 @@ def main(args):
     # --------------------------- Main LOOP ------------------ 
     for index in tqdm(indxs):
         img_transfer_path = os.path.join(args.transfer_dir, str(index), "adv_img.png")
-        adv_img = Image.open(img_transfer_patth).convert("RGB")
+        adv_img = Image.open(img_transfer_path).convert("RGB")
         _, label_dict = dataset[index]
         label_id = _extract_label(label_dict)
-
+        
         if args.mode == "post_transform": # knowing transform
-            img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
+            img_attack_tensor = _toTensor(adv_img).unsqueeze(0).cuda()
             img_feats = model.encode_posttransform_image(img_attack_tensor)
         
         elif args.mode == "pre_transform": # w/o knoiwng transform
-            img_attack_tensor = _toTensor(img_attack).unsqueeze(0).cuda()
+            img_attack_tensor = _toTensor(adv_img).unsqueeze(0).cuda()
             img_feats = model.encode_pretransform_image(img_attack_tensor)
       
       
         # re-evaluation
-        sims = img_feats @ evaluator.class_text_feats.T                     # (B, NUM_CLASS)
+        sims = img_feats @ class_features.T                     # (B, NUM_CLASS)
         adv_preds = sims.argmax(dim=-1).item()                    # (B,)
         if adv_preds != label_id:
             asr += 1
             
         
-        
+    print("Asr: ", asr / len(indxs))  
         
         
         
@@ -187,20 +204,8 @@ def get_args():
     parser.add_argument("--prompt_path", type=str, required=True,
                         help="Path to JSON file containing class prompts")
     
-    # Attack configuration
-    parser.add_argument("--attacker_name", type=str, required=True,
-                        choices=[ "ES_1_Lambda", "ES_1_Lambda_visual", "RS" , "NES"],
-                        help="Name of attacker algorithm")
-    parser.add_argument("--epsilon", type=float, default=8/255,
-                        help="Maximum perturbation magnitude (default: 8/255)")
-    parser.add_argument("--norm", type=str, default="linf",
-                        choices=["linf", "l2"],
-                        help="Norm constraint type")
-    parser.add_argument("--NES_batch", type=int, default=None)
-    parser.add_argument("--max_evaluation", type=int, default=10000)
-    parser.add_argument("--lamda", type=int, default=50)
-    parser.add_argument("--bs_steps", type=int, default=20)
-    parser.add_argument("--additional_eval", type=int, default=200)
+
+ 
     parser.add_argument("--mode", type=str, default="pre_transform",
                         choices=["pre_transform", "post_transform"],
                         help="Attack mode: before or after model transform")
@@ -214,9 +219,7 @@ def get_args():
     parser.add_argument("--device", type=str, default="cuda",
                         help="Device to use (cuda or cpu)")
     
-    # outdir
-    parser.add_argument("--out_dir", type=str, default="attack_new")
-
+    
     # using decoder
     parser.add_argument("--f_ratio", type=float, default=None)
     parser.add_argument("--visual_backbone_mode", type=str, default='scratch', choices=['ssl', 'scratch'],)
