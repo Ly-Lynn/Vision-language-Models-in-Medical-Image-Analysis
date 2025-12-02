@@ -127,7 +127,7 @@ def main(args):
           
     if args.pretrained:
         checkpoint = torch.load(args.pretrained)['model_state_dict']
-        checkpoint = _strip_prefix_from_state_dict(checkpoint)
+        # checkpoint = _strip_prefix_from_state_dict(checkpoint)
         not_matching_key = model.load_state_dict(checkpoint, strict=False)
         print("Incabable key: ", not_matching_key)
     model.eval()

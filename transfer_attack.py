@@ -1,5 +1,5 @@
 from modules.dataset.factory import DatasetFactory
-from modules.utils.constants import MODEL_TRANSFORMS, DEFAULT_TEMPLATES, RSNA_CLASS_PROMPTS, RSNA_CLASS_PROMPTS, SIZE_TRANSFORM, DATA_ROOT
+from modules.utils.constants import MODEL_TRANSFORMS, DEFAULT_TEMPLATES, RSNA_CLASS_PROMPTS, RSNA_CLASS_PROMPTS, SIZE_TRANSFORM, DATA_ROOT, ENTREP_CLASS_PROMPTS
 from modules.models.factory import ModelFactory
 from tqdm import tqdm
 import numpy as np
@@ -20,7 +20,7 @@ def _extract_label(dict_label):
         if is_gt == 1:
             return i
 
-def _strip_prefix_from_state_dict(sd, prefixes=('visual.')):
+def _strip_prefix_from_state_dict(sd, prefixes=('model.')):
 
     if isinstance(sd, dict) and 'state_dict' in sd and isinstance(sd['state_dict'], dict):
         sd = sd['state_dict']
@@ -133,8 +133,10 @@ def main(args):
           
     if args.pretrained:
         checkpoint = torch.load(args.pretrained)['model_state_dict']
+        # print(checkpoint.keys())
+        # raise
         # checkpoint = _strip_prefix_from_state_dict(checkpoint)
-        not_matching_key = model.load_state_dict(checkpoint, strict=False)
+        not_matching_key = model.load_state_dict(checkpoint, strict=True)
         print("Incabable key: ", not_matching_key)
     model.eval()
     
@@ -158,22 +160,32 @@ def main(args):
     for index in tqdm(indxs):
         img_transfer_path = os.path.join(args.transfer_dir, str(index), "adv_img.png")
         adv_img = Image.open(img_transfer_path).convert("RGB")
-        _, label_dict = dataset[index]
+        img, label_dict = dataset[index]
         label_id = _extract_label(label_dict)
         
+        # clean_preds
+        img_tensor = _toTensor(img).unsqueeze(0).cuda()
+        img_feats_clean = model.encode_pretransform_image(img_tensor)
+        sims = img_feats_clean @ class_features.T                     # (B, NUM_CLASS)
+        clean_preds = sims.argmax(dim=-1).item()                    # (B,)
+
         if args.mode == "post_transform": # knowing transform
             img_attack_tensor = _toTensor(adv_img).unsqueeze(0).cuda()
             img_feats = model.encode_posttransform_image(img_attack_tensor)
-        
+
         elif args.mode == "pre_transform": # w/o knoiwng transform
             img_attack_tensor = _toTensor(adv_img).unsqueeze(0).cuda()
             img_feats = model.encode_pretransform_image(img_attack_tensor)
+
+
       
       
         # re-evaluation
         sims = img_feats @ class_features.T                     # (B, NUM_CLASS)
         adv_preds = sims.argmax(dim=-1).item()                    # (B,)
-        if adv_preds != label_id:
+        if int(adv_preds) != int(clean_preds):
+            # print("Successful attack on index: ", index)
+            # input("Press Enter to continue...")
             asr += 1
             
         

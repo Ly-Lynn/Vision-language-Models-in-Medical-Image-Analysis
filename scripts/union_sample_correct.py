@@ -4,8 +4,8 @@ import random
 # =======================
 # 1. Đọc dữ liệu
 # =======================
-path_1 = "/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/evaluate_result/model_name=biomedclip_dataset=rsna_n_prompt=5.json"
-path_2 = "/datastore/elo/khoatn/Vision-language-Models-in-Medical-Image-Analysis/evaluate_result/model_name=medclip_dataset=rsna_n_prompt=5.json"
+path_1 = r"D:/thesis_result/Vision-language-Models-in-Medical-Image-Analysis/evaluate_result/model_name=entrep_dataset=entrep_n_prompt=3.json"
+path_2 = r"D:/thesis_result/Vision-language-Models-in-Medical-Image-Analysis/evaluate_result/model_name=entrep_ssl_dataset=entrep_n_prompt=5.json"
 
 data_1 = json.load(open(path_1, "r"))
 data_2 = json.load(open(path_2, "r"))
@@ -15,7 +15,7 @@ data_2 = json.load(open(path_2, "r"))
 # =======================
 idxs_1 = [item['index'] for item in data_1 if item['class_pred_id'] == item['gt_pred_id']]
 idxs_2 = [item['index'] for item in data_2 if item['class_pred_id'] == item['gt_pred_id']]
-
+print(len(idxs_1), len(idxs_2))
 # =======================
 # 3. Lấy giao
 # =======================
@@ -26,35 +26,35 @@ print("len giao:", len(giao))
 # =======================
 # 4. Gom nhóm theo class trong tập giao
 # =======================
-by_class = {
-    '0': [],
-    '1': [],
-}
+by_class = {'0': [], '1': [], '2': [], '3': []}
 
 for item in data_1:  # dùng data_1 hoặc data_2 đều được
     idx = item['index']
     if idx in giao:
         cls = str(item['gt_pred_id'])
-        if cls in by_class:
-            by_class[cls].append(idx)
+        by_class[cls].append(idx)
 
 # =======================
-# 5. Kiểm tra số lượng mỗi lớp trong giao
+# 5. In số lượng mỗi class
 # =======================
 for cls, lst in by_class.items():
     print(f"Class {cls} trong giao có {len(lst)} mẫu")
-    if len(lst) < 500:
-        raise ValueError(f"Lỗi: class {cls} chỉ có {len(lst)} mẫu trong giao — không đủ 500!")
 
 # =======================
-# 6. Chọn đúng 500/class
+# 6. Lấy tối đa có thể cho mỗi class (max per class)
 # =======================
 selected = []
-for cls, lst in by_class.items():
-    chosen = random.sample(lst, 500)
-    selected.extend(chosen)
+MAX_PER_CLASS = 500  # giới hạn upper bound
 
-print("Tổng số index được chọn:", len(selected))  # phải = 1000
+for cls, lst in by_class.items():
+    if len(lst) > MAX_PER_CLASS:
+        chosen = random.sample(lst, MAX_PER_CLASS)
+    else:
+        chosen = lst[:]  # lấy hết nếu không đủ
+    selected.extend(chosen)
+    print(f"→ Class {cls}: lấy {len(chosen)} mẫu")
+
+print("Tổng số index được chọn:", len(selected))
 
 # =======================
 # 7. Lưu ra file
